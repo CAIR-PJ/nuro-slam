@@ -1,0 +1,30 @@
+# Build environments and binaries
+build/
+install/
+log/
+.venv*/
+venv/
+__pycache__/
+*.pyc
+*.o
+*.a
+*.so
+*.dylib
+.DS_Store
+# Raw sensor data and large generated artifacts
+*.events
+*.aedat
+*.aedat4
+*.bag
+*.db3
+*.mcap
+datasets/raw/
+experiments/raw/
+experiments/runs/
+backups/
+*.log
+# Credentials
+.env
+.env.*
+*.pem
+*.key
