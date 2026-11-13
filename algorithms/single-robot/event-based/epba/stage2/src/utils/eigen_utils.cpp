@@ -1,3 +1,4 @@
+#include <cassert>
 #include "utils/eigen_utils.h"
 
 void eigen_utils::catSpMat(const int dim,
