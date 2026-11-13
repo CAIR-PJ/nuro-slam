@@ -1,0 +1,62 @@
+{
+  "component": "CMax-SLAM",
+  "status": "review_only_unverified",
+  "files": [
+    {
+      "path": "README.md",
+      "sha256": "3e47725f135393f19fb2a2a3969477c65b71c0326d89f82d6d096e2368048178"
+    },
+    {
+      "path": "tools/build_macos.sh",
+      "sha256": "d4b5141755165510a15e5d762fac1ece769a56a070cd02c065f9c85007428d33"
+    },
+    {
+      "path": "tools/convert_ecrot.py",
+      "sha256": "12a4d398cf5c3050c608df98ba77ca677f213d294677fae8fcd2e77f9e1c0e2f"
+    },
+    {
+      "path": "tools/preflight.py",
+      "sha256": "e5249c67ebc4310902fff2453771cf3887a1dab3273246001263bca690b7812e"
+    },
+    {
+      "path": "tools/requirements.txt",
+      "sha256": "46a1a088fb6846757fa6d08a0c6751e0e38256a6703d2ca21e8c5c77645e9ac2"
+    },
+    {
+      "path": "tools/validate_outputs.py",
+      "sha256": "892cc2f4b50b1d41baa8075767dfba64abe4e8b5bf2554c6a0e2165bc386bded"
+    },
+    {
+      "path": "tests/test_converter.py",
+      "sha256": "304281343a0890f17e636e7da473ec8883f32d337d663c37a8826a11fcfd6089"
+    },
+    {
+      "path": "tests/time_test.cpp",
+      "sha256": "92d0367d8c10b4f1601a3ad6560713dea8f49e17cb7e6162a37f6ade4d3957c6"
+    },
+    {
+      "path": "docs/PROVENANCE.md",
+      "sha256": "5364ca5c38b69cd683e7a141000b84646f4828c6cccd4f02e60934f4109c64d5"
+    },
+    {
+      "path": "docs/UPSTREAM_REVISION.txt",
+      "sha256": "5f41617c902f01d174539be569be4289ad2a5864d87bb2fa5dc0b2116b8c546a"
+    },
+    {
+      "path": "docs/SOURCE_MANIFEST.json",
+      "sha256": "887f2844721c6e371d422b2b05e4fe4d12cefc42c7c7e68ed14dbdc1578fc076"
+    },
+    {
+      "path": "docs/UPSTREAM_TO_ROS2.patch",
+      "sha256": "50617573b8c0304590b5111851ebf3c023634ecce4807e4baef2c12d563539f2"
+    },
+    {
+      "path": "docs/APPROACH_B_CHANGELOG.md",
+      "sha256": "ecbe7a4063548c381c9b0e429e0bac4e4ced7d20712511ed5a837c4b6c11092c"
+    },
+    {
+      "path": "docs/OPENCV5_COMPATIBILITY.md",
+      "sha256": "ec9aae9797b88778bf08bf19cb3dfbb8a39084a523f2f7b69679ea5871d620af"
+    }
+  ]
+}

@@ -1,0 +1,172 @@
+{
+  "upstream_url": "https://github.com/tub-rip/cmax_slam",
+  "revision": "12342de85cf46b81fc45211714853ee0233284a3",
+  "sources": [
+    {
+      "path": "src/backend/event_pano_warper.cpp",
+      "upstream_sha256": "1b608d2dafe52cf1dfdd1a4e8e46e0786b4f9006b5d4e4a6bd366e3b3d707fac",
+      "port_sha256": "e16cce64c507632ab55374d6b7ef37e2c3183863f7477ff27ca840c98c568a68",
+      "byte_identical": false
+    },
+    {
+      "path": "src/backend/global_focus_funcs.cpp",
+      "upstream_sha256": "62cc55497fc215001ae94e617490d6bc5ef8e9407b765716734babe7cb831310",
+      "port_sha256": "62cc55497fc215001ae94e617490d6bc5ef8e9407b765716734babe7cb831310",
+      "byte_identical": true
+    },
+    {
+      "path": "src/backend/global_optim_contrast_gsl.cpp",
+      "upstream_sha256": "9c01f7a1009fbc5aec83b96da5182bd6742478361b2d00e07d19442790e941c7",
+      "port_sha256": "9c01f7a1009fbc5aec83b96da5182bd6742478361b2d00e07d19442790e941c7",
+      "byte_identical": true
+    },
+    {
+      "path": "src/backend/global_optim_contrast_gsl_analytical.cpp",
+      "upstream_sha256": "0b864d707a2ab7ad0e342c77004f9a874dc24a6a3c3b8a5df182fd26bf206028",
+      "port_sha256": "0b864d707a2ab7ad0e342c77004f9a874dc24a6a3c3b8a5df182fd26bf206028",
+      "byte_identical": true
+    },
+    {
+      "path": "src/backend/pose_graph_optimizer.cpp",
+      "upstream_sha256": "5eb330035790cbd5dde723188f7e03a4d193b25ee863fb2e5897ccfd32cc18d5",
+      "port_sha256": "6fb785a86e58af3e70c232273ce7a916af4e3ebcbed8688f9550d82c51dbf36e",
+      "byte_identical": false
+    },
+    {
+      "path": "src/backend/trajectory.cpp",
+      "upstream_sha256": "8e50474c095a5afbe659406988f90529a472a9484ef005ae0d4644ac67ddc952",
+      "port_sha256": "cc79b70116656e35115d620dea1ce360e7c5f717d05f6be8c9279f3d1e487cb5",
+      "byte_identical": false
+    },
+    {
+      "path": "src/cmax_slam.cpp",
+      "upstream_sha256": "02b091b74c54495b70c13a1360f524a3ef4284ede9e5b64facb30faff676cfaf",
+      "port_sha256": "99da7fc9169238d466498cb9c2a1dd74720a2af5b0788771444aae1fc6e124d9",
+      "byte_identical": false
+    },
+    {
+      "path": "src/frontend/ang_vel_estimator.cpp",
+      "upstream_sha256": "2a2817f7d942a8b664229b42aef61831ee8fe928a1f8692a55ae5e64690696a8",
+      "port_sha256": "d19d86c94d75f6377ad2aac258c6f929fea84a76ecbd2c737e1b135a08c500f0",
+      "byte_identical": false
+    },
+    {
+      "path": "src/frontend/local_focus_funcs.cpp",
+      "upstream_sha256": "5791872ba63c117500b25485c2d5df8195d7bfc9269fcbe1df4e8f223675aed4",
+      "port_sha256": "5791872ba63c117500b25485c2d5df8195d7bfc9269fcbe1df4e8f223675aed4",
+      "byte_identical": true
+    },
+    {
+      "path": "src/frontend/local_image_warped_events.cpp",
+      "upstream_sha256": "12866820b919bb505f5c08138156aa901156956bb25741500a678088e088ac7f",
+      "port_sha256": "205438adc5c12d22a2d94deb007ebef0fb9bf06bdb49c4b59b0dbd2535701846",
+      "byte_identical": false
+    },
+    {
+      "path": "src/frontend/local_optim_contrast_gsl.cpp",
+      "upstream_sha256": "fb201da25cc4b863c40130fd9835510ea55d1dfe86c23d99617bd5e848793a67",
+      "port_sha256": "fb201da25cc4b863c40130fd9835510ea55d1dfe86c23d99617bd5e848793a67",
+      "byte_identical": true
+    },
+    {
+      "path": "src/node.cpp",
+      "upstream_sha256": "a9f5adbde738430b74630b89df42e567ae049ed5d6c88e55623da39383fcd4bb",
+      "port_sha256": "8100ba01c3fabeeced65c9f4d4c8a89cae1fb3f346b67f6474283a5a81b682bf",
+      "byte_identical": false
+    },
+    {
+      "path": "src/utils/image_geom_util.cpp",
+      "upstream_sha256": "e9200a9fbbbf99dee349a138026dac613032947299f0942985f109ba51ca00ce",
+      "port_sha256": "e9200a9fbbbf99dee349a138026dac613032947299f0942985f109ba51ca00ce",
+      "byte_identical": true
+    },
+    {
+      "path": "src/utils/image_utils.cpp",
+      "upstream_sha256": "9427437dca20e11cb282a6718888e1b96b833d939e6dc2d12eb8b36767be1550",
+      "port_sha256": "9427437dca20e11cb282a6718888e1b96b833d939e6dc2d12eb8b36767be1550",
+      "byte_identical": true
+    },
+    {
+      "path": "include/backend/equirectangular_camera.h",
+      "upstream_sha256": "18fc02eca107ed4b0336e02e99dcfbf88ba32b3976124ff0aee15dd987c8907a",
+      "port_sha256": "75f7d2ea693043e130dd956302a04c263f18c589206edea316344b84093d4ba2",
+      "byte_identical": false
+    },
+    {
+      "path": "include/backend/event_pano_warper.h",
+      "upstream_sha256": "51d3fa2550a34f24949e8c79794b3fa88dd5251cbbe1e1686289f94ddf7cba37",
+      "port_sha256": "42193abb2ef0c5ca538b3e62e66189c4b3c09c33fc48956b83d1094e8b7e3c3c",
+      "byte_identical": false
+    },
+    {
+      "path": "include/backend/global_focus_funcs.h",
+      "upstream_sha256": "a3a28686ff23c46e18ebd2ff5ce199b611f266a1f6384e3a2069bb09cc24c2e0",
+      "port_sha256": "543192e3b4fa10fbc6d3f9c0891cf0a8ba8ed6476039d8e9dbdc34a3fcbed6b4",
+      "byte_identical": false
+    },
+    {
+      "path": "include/backend/global_optim_contrast_gsl.h",
+      "upstream_sha256": "1afefb66915af06e972c309720088a4e277e42fff5581e838b69655ba5421a01",
+      "port_sha256": "2fa2a57d59855b06c24cbbf3b7cf719fde278d26538b6b4f830abf0aa248975f",
+      "byte_identical": false
+    },
+    {
+      "path": "include/backend/pose_graph_optimizer.h",
+      "upstream_sha256": "6d3519e48648ea805eae99eda42ad28e233a80cc7530cb62dbd122d31245d893",
+      "port_sha256": "f640bc6c99e25401bf25892e7723cf796fe46fbc4f1e03abd560484186fc3ec1",
+      "byte_identical": false
+    },
+    {
+      "path": "include/backend/trajectory.h",
+      "upstream_sha256": "17c4c677d94c2e963f664f386f44a56ee6ab3f190fa3aad71efd47400cd84eae",
+      "port_sha256": "bb4c4a3c703eba01edd47013e34fe0bf65a22b341b37c4c1efd89463e1a121cd",
+      "byte_identical": false
+    },
+    {
+      "path": "include/cmax_slam.h",
+      "upstream_sha256": "ac543ad9e0622ee70f5f8663dcfd0336bdaa04e5e3be87775caf033c8ef9335c",
+      "port_sha256": "5074a7782de939e5b0e4c50e30f01fd55316d68c784a0a9efaa5c2bef13c1572",
+      "byte_identical": false
+    },
+    {
+      "path": "include/frontend/ang_vel_estimator.h",
+      "upstream_sha256": "d45a72c5980a708e033a980c01ff49ca0725806be03295c6227c29599bbbad48",
+      "port_sha256": "9eb2114043f0c0591f85e52233f52c9b8529462300a5c3d4ac1c47eada3c9910",
+      "byte_identical": false
+    },
+    {
+      "path": "include/frontend/local_focus_funcs.h",
+      "upstream_sha256": "3c8dd91d7afcf619a4c4d8acc0cff3733bd2c3336476ee1f3cd82869eae59d29",
+      "port_sha256": "69cdbd2ef23b5b24527f69726e9426618eedc34d9f742d6b56bfbad71eb277cd",
+      "byte_identical": false
+    },
+    {
+      "path": "include/utils/image_geom_util.h",
+      "upstream_sha256": "81f59083cfaab689eba410d353be392eefcbcc530b1ea5f39e3ee807c21067aa",
+      "port_sha256": "ef4b2b320a53556576975fd23445878c7a6712b4af75724628797f679377c504",
+      "byte_identical": false
+    },
+    {
+      "path": "include/utils/image_utils.h",
+      "upstream_sha256": "b509391b82685cfc71d67bab0e95c27ff0b9626e1ad748ccd9a875fc2b7e02d5",
+      "port_sha256": "620fe645d1ca236ffcd0937d81ee914c9e36587b9aa6af3f6fdad5e1a76cd877",
+      "byte_identical": false
+    },
+    {
+      "path": "include/utils/parameters.h",
+      "upstream_sha256": "89235e4294291c4388ada61df1da3be67ec5f02f09d85076e5ed1ecd0dc5a07b",
+      "port_sha256": "05a490f612982f477c3a10bfa80400faa3f782590c10ba847cf94c00c9622e69",
+      "byte_identical": false
+    }
+  ],
+  "thirdparty_files_verified_identical": 2336,
+  "byte_identical_algorithm_sources": [
+    "src/backend/global_focus_funcs.cpp",
+    "src/backend/global_optim_contrast_gsl.cpp",
+    "src/backend/global_optim_contrast_gsl_analytical.cpp",
+    "src/frontend/local_focus_funcs.cpp",
+    "src/frontend/local_optim_contrast_gsl.cpp",
+    "src/utils/image_geom_util.cpp",
+    "src/utils/image_utils.cpp"
+  ]
+}

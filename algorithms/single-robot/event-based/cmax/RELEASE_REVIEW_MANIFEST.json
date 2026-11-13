@@ -1,0 +1,420 @@
+{
+  "project": "Nuro-SLAM",
+  "component": "CMax-SLAM",
+  "status": "review_only_unverified",
+  "upstream_commit": "12342de85cf46b81fc45211714853ee0233284a3",
+  "build_verified": false,
+  "runtime_verified": false,
+  "accuracy_verified": false,
+  "manifest_entries": 59,
+  "unique_copied_files": 58,
+  "files": [
+    {
+      "path": "CMakeLists.txt",
+      "classifications": [
+        "project_files"
+      ],
+      "sha256": "788386687998fd0e1ede069b3686ad40455d6b21e6ec7dd899ecf6fe35d9e095"
+    },
+    {
+      "path": "LICENSE",
+      "classifications": [
+        "project_files",
+        "license_files"
+      ],
+      "sha256": "49cfe6368e41ce0cd9ac5060066dbacbe1ea5bdbb9ad3756634f396bf8e02d2a"
+    },
+    {
+      "path": "config/motorized_mount.yaml",
+      "classifications": [
+        "project_files"
+      ],
+      "sha256": "ada1f281ed89341e37f22a60f9eaacf614325869884fdd7b49605a9a5d3d9553"
+    },
+    {
+      "path": "config/synthetic.yaml",
+      "classifications": [
+        "project_files"
+      ],
+      "sha256": "2aae44dce269ce69eb2c6e6e525419691676fcbb9eff6e6b3f7ff90d49b51236"
+    },
+    {
+      "path": "include/backend/equirectangular_camera.h",
+      "classifications": [
+        "project_files"
+      ],
+      "sha256": "75f7d2ea693043e130dd956302a04c263f18c589206edea316344b84093d4ba2"
+    },
+    {
+      "path": "include/backend/event_pano_warper.h",
+      "classifications": [
+        "project_files"
+      ],
+      "sha256": "319aed2c04131132b52c7d97df15bd8fc002786d5109f8c9b4ecb105d8af6521"
+    },
+    {
+      "path": "include/backend/global_focus_funcs.h",
+      "classifications": [
+        "project_files"
+      ],
+      "sha256": "543192e3b4fa10fbc6d3f9c0891cf0a8ba8ed6476039d8e9dbdc34a3fcbed6b4"
+    },
+    {
+      "path": "include/backend/global_optim_contrast_gsl.h",
+      "classifications": [
+        "project_files"
+      ],
+      "sha256": "2fa2a57d59855b06c24cbbf3b7cf719fde278d26538b6b4f830abf0aa248975f"
+    },
+    {
+      "path": "include/backend/pose_graph_optimizer.h",
+      "classifications": [
+        "project_files"
+      ],
+      "sha256": "103232f3f63840ead076ef9f85e1c5726b42114b1518edd858ca0b87666908b7"
+    },
+    {
+      "path": "include/backend/trajectory.h",
+      "classifications": [
+        "project_files"
+      ],
+      "sha256": "bb4c4a3c703eba01edd47013e34fe0bf65a22b341b37c4c1efd89463e1a121cd"
+    },
+    {
+      "path": "include/cmax_port/camera_adapter.hpp",
+      "classifications": [
+        "project_files"
+      ],
+      "sha256": "bdc054dc62e7944b7d720916a64f04a683532b588120bbc0dede572fae8d71d6"
+    },
+    {
+      "path": "include/cmax_port/camera_adapter.hpp.backup",
+      "classifications": [
+        "project_files"
+      ],
+      "sha256": "49c3ced19f39d98a7bf2f4a20acb2b66c6ab62fe997c949beb761cbd2ce32c88"
+    },
+    {
+      "path": "include/cmax_port/image_adapter.hpp",
+      "classifications": [
+        "project_files"
+      ],
+      "sha256": "0fbac5307ac45cb4bb4056440b4ac7adf01a076b4a3e4ac033ffb219eebc93ce"
+    },
+    {
+      "path": "include/cmax_port/time.hpp",
+      "classifications": [
+        "project_files"
+      ],
+      "sha256": "ee1b306cb400253890c0af4597ebb2d941c7f58ba1a13b70c9b6736f8132365d"
+    },
+    {
+      "path": "include/cmax_port/types.hpp",
+      "classifications": [
+        "project_files"
+      ],
+      "sha256": "c3ebf05503b4eb935c3354c065424f848e14be77fd5fc0efeb9a7c37772ccda0"
+    },
+    {
+      "path": "include/cmax_slam.h",
+      "classifications": [
+        "project_files"
+      ],
+      "sha256": "1b34e4cd7fd03cf05677fcc6bbb73fcfd97b09c77dfb0977ed021ac81d3caea6"
+    },
+    {
+      "path": "include/frontend/ang_vel_estimator.h",
+      "classifications": [
+        "project_files"
+      ],
+      "sha256": "da56e2de3926c1f26a4ac841e9640531b43db3deae7194a5c89cfcdee30782d3"
+    },
+    {
+      "path": "include/frontend/local_focus_funcs.h",
+      "classifications": [
+        "project_files"
+      ],
+      "sha256": "69cdbd2ef23b5b24527f69726e9426618eedc34d9f742d6b56bfbad71eb277cd"
+    },
+    {
+      "path": "include/utils/image_geom_util.h",
+      "classifications": [
+        "project_files"
+      ],
+      "sha256": "ef4b2b320a53556576975fd23445878c7a6712b4af75724628797f679377c504"
+    },
+    {
+      "path": "include/utils/image_utils.h",
+      "classifications": [
+        "project_files"
+      ],
+      "sha256": "620fe645d1ca236ffcd0937d81ee914c9e36587b9aa6af3f6fdad5e1a76cd877"
+    },
+    {
+      "path": "include/utils/parameters.h",
+      "classifications": [
+        "project_files"
+      ],
+      "sha256": "05a490f612982f477c3a10bfa80400faa3f782590c10ba847cf94c00c9622e69"
+    },
+    {
+      "path": "launch/live.launch.py",
+      "classifications": [
+        "project_files"
+      ],
+      "sha256": "972c7b443d5537177d4e609af212e403c3abb9f23fe7080b9433b28097b8a970"
+    },
+    {
+      "path": "launch/offline.launch.py",
+      "classifications": [
+        "project_files"
+      ],
+      "sha256": "e61b35e681e9cb2d587a613024dc6dc6dfc0f4e3cb3c69648da4b35023ea6f12"
+    },
+    {
+      "path": "msg/Event.msg",
+      "classifications": [
+        "project_files"
+      ],
+      "sha256": "f71789930a61278b9d8e80693ab42381e3ca60c5314be306194564c672fa6ccf"
+    },
+    {
+      "path": "msg/EventArray.msg",
+      "classifications": [
+        "project_files"
+      ],
+      "sha256": "f82d648136287fd7e29fd6e9aacdba187424b024513d4df9c62b9e6f1932dbca"
+    },
+    {
+      "path": "package.xml",
+      "classifications": [
+        "project_files"
+      ],
+      "sha256": "b34d549cb00f4f77cad29ff8027776f420aad8b5dc906cc153479dd48b1864e1"
+    },
+    {
+      "path": "rviz/cmax.rviz",
+      "classifications": [
+        "project_files"
+      ],
+      "sha256": "7e8a8c68e7e6e36cb3edd9862d3275b4061ccc5e4fc464c6020c4b8529f0c74a"
+    },
+    {
+      "path": "src/backend/event_pano_warper.cpp",
+      "classifications": [
+        "project_files"
+      ],
+      "sha256": "e16cce64c507632ab55374d6b7ef37e2c3183863f7477ff27ca840c98c568a68"
+    },
+    {
+      "path": "src/backend/global_focus_funcs.cpp",
+      "classifications": [
+        "project_files"
+      ],
+      "sha256": "62cc55497fc215001ae94e617490d6bc5ef8e9407b765716734babe7cb831310"
+    },
+    {
+      "path": "src/backend/global_optim_contrast_gsl.cpp",
+      "classifications": [
+        "project_files"
+      ],
+      "sha256": "9c01f7a1009fbc5aec83b96da5182bd6742478361b2d00e07d19442790e941c7"
+    },
+    {
+      "path": "src/backend/global_optim_contrast_gsl_analytical.cpp",
+      "classifications": [
+        "project_files"
+      ],
+      "sha256": "0b864d707a2ab7ad0e342c77004f9a874dc24a6a3c3b8a5df182fd26bf206028"
+    },
+    {
+      "path": "src/backend/pose_graph_optimizer.cpp",
+      "classifications": [
+        "project_files"
+      ],
+      "sha256": "aa7720eef2066f41c45b08f43b4f21b58e3f2b4c7da0fa8bc8cc68b57e9c9fbb"
+    },
+    {
+      "path": "src/backend/trajectory.cpp",
+      "classifications": [
+        "project_files"
+      ],
+      "sha256": "cc79b70116656e35115d620dea1ce360e7c5f717d05f6be8c9279f3d1e487cb5"
+    },
+    {
+      "path": "src/cmax_slam.cpp",
+      "classifications": [
+        "project_files"
+      ],
+      "sha256": "99da7fc9169238d466498cb9c2a1dd74720a2af5b0788771444aae1fc6e124d9"
+    },
+    {
+      "path": "src/frontend/ang_vel_estimator.cpp",
+      "classifications": [
+        "project_files"
+      ],
+      "sha256": "e12632a99791b3b3a19b6dcf5b4c7d6c8c922ee6a6b892c9733d1b9850b4b0a3"
+    },
+    {
+      "path": "src/frontend/local_focus_funcs.cpp",
+      "classifications": [
+        "project_files"
+      ],
+      "sha256": "5791872ba63c117500b25485c2d5df8195d7bfc9269fcbe1df4e8f223675aed4"
+    },
+    {
+      "path": "src/frontend/local_image_warped_events.cpp",
+      "classifications": [
+        "project_files"
+      ],
+      "sha256": "205438adc5c12d22a2d94deb007ebef0fb9bf06bdb49c4b59b0dbd2535701846"
+    },
+    {
+      "path": "src/frontend/local_optim_contrast_gsl.cpp",
+      "classifications": [
+        "project_files"
+      ],
+      "sha256": "fb201da25cc4b863c40130fd9835510ea55d1dfe86c23d99617bd5e848793a67"
+    },
+    {
+      "path": "src/node.cpp",
+      "classifications": [
+        "project_files"
+      ],
+      "sha256": "8100ba01c3fabeeced65c9f4d4c8a89cae1fb3f346b67f6474283a5a81b682bf"
+    },
+    {
+      "path": "src/utils/image_geom_util.cpp",
+      "classifications": [
+        "project_files"
+      ],
+      "sha256": "e9200a9fbbbf99dee349a138026dac613032947299f0942985f109ba51ca00ce"
+    },
+    {
+      "path": "src/utils/image_utils.cpp",
+      "classifications": [
+        "project_files"
+      ],
+      "sha256": "9427437dca20e11cb282a6718888e1b96b833d939e6dc2d12eb8b36767be1550"
+    },
+    {
+      "path": "thirdparty/basalt-headers/LICENSE",
+      "classifications": [
+        "license_files"
+      ],
+      "sha256": "8abbeeb535841bbf306a006b54b5829974156abd98a68f6398558db43a51dd0c"
+    },
+    {
+      "path": "thirdparty/basalt-headers/include/basalt/spline/so3_spline.h",
+      "classifications": [
+        "dependency_files"
+      ],
+      "sha256": "e585a3ed2f7645df610c4cd68ff0985409f7b12fffeb4e2618c5cba1aab908ec"
+    },
+    {
+      "path": "thirdparty/basalt-headers/include/basalt/spline/spline_common.h",
+      "classifications": [
+        "dependency_files"
+      ],
+      "sha256": "8bd7c11f774cd703ac15656e67bcb93ce00ef79f5b1488095161db673d15f714"
+    },
+    {
+      "path": "thirdparty/basalt-headers/include/basalt/utils/assert.h",
+      "classifications": [
+        "dependency_files"
+      ],
+      "sha256": "fcb6f6bdc1be4c1d413e0d62079cd1abc52f0c11ec0d0a39e0b7aa629eeb7eb1"
+    },
+    {
+      "path": "thirdparty/basalt-headers/include/basalt/utils/eigen_utils.hpp",
+      "classifications": [
+        "dependency_files"
+      ],
+      "sha256": "e1c0e23c738ca7c0d10526a26e3e3b3f328dc9093fef02a5ee3b3abe6ba14308"
+    },
+    {
+      "path": "thirdparty/basalt-headers/include/basalt/utils/sophus_utils.hpp",
+      "classifications": [
+        "dependency_files"
+      ],
+      "sha256": "0064fc7b8cb2795c7472ba608558b473e294cb9d9b701431a88d571bdb211ce8"
+    },
+    {
+      "path": "thirdparty/basalt-headers/thirdparty/Sophus/LICENSE.txt",
+      "classifications": [
+        "license_files"
+      ],
+      "sha256": "fb709d95e89b7bff8987ba32050be62eb110edc2727262a85b2726b22d7d1571"
+    },
+    {
+      "path": "thirdparty/basalt-headers/thirdparty/Sophus/sophus/common.hpp",
+      "classifications": [
+        "dependency_files"
+      ],
+      "sha256": "d02d9d1313259938ebc6cbde45bab3b9684d9207dd7c98b169a9e1438d810e5c"
+    },
+    {
+      "path": "thirdparty/basalt-headers/thirdparty/Sophus/sophus/formatstring.hpp",
+      "classifications": [
+        "dependency_files"
+      ],
+      "sha256": "1ece8b982ca5073f875eb285f10a563e85fb16d4f0a3cdbce7148fde6f9f3a24"
+    },
+    {
+      "path": "thirdparty/basalt-headers/thirdparty/Sophus/sophus/rotation_matrix.hpp",
+      "classifications": [
+        "dependency_files"
+      ],
+      "sha256": "c840407beff404029d01f2bb6b0d913dfa8ed3cfbcc6d0bbc012ff4cd8b68db6"
+    },
+    {
+      "path": "thirdparty/basalt-headers/thirdparty/Sophus/sophus/rxso3.hpp",
+      "classifications": [
+        "dependency_files"
+      ],
+      "sha256": "8293ece3cab6e601ec6d5b07a57ff0b4b357900d319e2b49a63e930887c0b48f"
+    },
+    {
+      "path": "thirdparty/basalt-headers/thirdparty/Sophus/sophus/se3.hpp",
+      "classifications": [
+        "dependency_files"
+      ],
+      "sha256": "4b807c9f42a846c28cfdab74d31812c5ebda69ccb127ed0d219ad3da7051c62d"
+    },
+    {
+      "path": "thirdparty/basalt-headers/thirdparty/Sophus/sophus/sim3.hpp",
+      "classifications": [
+        "dependency_files"
+      ],
+      "sha256": "6f1717a61517f17c20a12b17598d963831e1baa31e73320457cadaf38ef22fd7"
+    },
+    {
+      "path": "thirdparty/basalt-headers/thirdparty/Sophus/sophus/sim_details.hpp",
+      "classifications": [
+        "dependency_files"
+      ],
+      "sha256": "63be0e4f3673599d17629e76792ca55d822496656467b548bd24b59067e2fab7"
+    },
+    {
+      "path": "thirdparty/basalt-headers/thirdparty/Sophus/sophus/so2.hpp",
+      "classifications": [
+        "dependency_files"
+      ],
+      "sha256": "1a22dd4536ab07f11ad8cd76791b96be67635e6dd1459e2f45887690588d6ca5"
+    },
+    {
+      "path": "thirdparty/basalt-headers/thirdparty/Sophus/sophus/so3.hpp",
+      "classifications": [
+        "dependency_files"
+      ],
+      "sha256": "38a295ce4267cabc27766c8d632a06dabc9cfeff142ea193b399b74f50312889"
+    },
+    {
+      "path": "thirdparty/basalt-headers/thirdparty/Sophus/sophus/types.hpp",
+      "classifications": [
+        "dependency_files"
+      ],
+      "sha256": "0f0ca642f545283707d240c2c4391e2484520f52506081385d6d20e832cc965b"
+    }
+  ]
+}

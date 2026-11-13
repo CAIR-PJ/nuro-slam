@@ -28,3 +28,7 @@ backups/
 .env.*
 *.pem
 *.key
+
+# Local-only port release review
+/release-candidates/
+/release-audits/

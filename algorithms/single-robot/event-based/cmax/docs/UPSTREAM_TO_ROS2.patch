@@ -1,0 +1,1326 @@
+--- upstream/src/backend/event_pano_warper.cpp
++++ port/src/backend/event_pano_warper.cpp
+@@ -1,5 +1,4 @@
+ #include "backend/event_pano_warper.h"
+-#include <sensor_msgs/Imu.h>
+ #include <opencv2/core/eigen.hpp>
+ #include <glog/logging.h>
+ 
+@@ -94,7 +93,7 @@
+                 for (int j = -radius; j <= radius; j++)
+                 {
+                     int x_mask = ic+i, y_mask = ir+j;
+-                    if (0 <= y_mask+j && y_mask < IG_.rows && 0 <= x_mask && x_mask < IG_.cols)
++                    if (0 <= y_mask+j && y_mask+j < IG_.rows && 0 <= x_mask && x_mask < IG_.cols)
+                     {
+                         mask.at<uchar>(y_mask, x_mask) = 1;
+                     }
+@@ -165,7 +164,7 @@
+ }
+ 
+ void EventWarper::computeImageOfWarpedEvents(Trajectory* traj,
+-                                             std::vector<dvs_msgs::Event>* event_subset,
++                                             std::vector<cmax_port::Event>* event_subset,
+                                              cv::Mat* iwe,
+                                              std::vector<cv::Mat>* iwe_deriv)
+ {
+@@ -231,15 +230,15 @@
+ }
+ 
+ void EventWarper::warpAndAccumulateEvents(Trajectory *traj,
+-                                          std::vector<dvs_msgs::Event>::iterator event_begin,
+-                                          std::vector<dvs_msgs::Event>::iterator event_end,
++                                          std::vector<cmax_port::Event>::iterator event_begin,
++                                          std::vector<cmax_port::Event>::iterator event_end,
+                                           std::vector<cv::Mat>* iwe_deriv)
+ {
+     // Share a common pose for all events in the batch
+-    ros::Time time_first = event_begin->ts;
+-    ros::Time time_last = (event_end-1)->ts;
+-    ros::Duration time_dt = time_last - time_first;
+-    ros::Time time_batch = time_first + time_dt * 0.5;
++    cmax_port::Time time_first = event_begin->ts;
++    cmax_port::Time time_last = (event_end-1)->ts;
++    cmax_port::Duration time_dt = time_last - time_first;
++    cmax_port::Time time_batch = time_first + time_dt * 0.5;
+ 
+     Sophus::SO3d so3;
+ 
+--- upstream/src/backend/pose_graph_optimizer.cpp
++++ port/src/backend/pose_graph_optimizer.cpp
+@@ -2,9 +2,6 @@
+ #include "backend/trajectory.h"
+ #include "backend/global_optim_contrast_gsl.h"
+ 
+-#include <camera_info_manager/camera_info_manager.h>
+-#include <geometry_msgs/TwistStamped.h>
+-#include <sensor_msgs/Image.h>
+ 
+ #include <opencv2/highgui.hpp>
+ #include <Eigen/Core>
+@@ -20,21 +17,42 @@
+ 
+ namespace cmax_slam {
+ 
+-PoseGraphOptimizer::PoseGraphOptimizer(ros::NodeHandle* nh): nh_(nh), it_(*nh)
+-{
+-    image_pub_ = it_.advertise("pano_map", 1);
++PoseGraphOptimizer::PoseGraphOptimizer(rclcpp::Node* nh): nh_(nh)
++{
++    pose_pub_ = nh_->create_publisher<geometry_msgs::msg::PoseStamped>("pose", rclcpp::QoS(1).reliable().transient_local());
++    path_pub_ = nh_->create_publisher<nav_msgs::msg::Path>("path", rclcpp::QoS(1).reliable().transient_local());
++    tf_pub_ = std::make_unique<tf2_ros::TransformBroadcaster>(*nh_);
++    map_file_ = nh_->declare_parameter<std::string>("map_file", "");
++    auto filename = nh_->declare_parameter<std::string>("trajectory_file", "");
++    if (!filename.empty()) {
++      trajectory_file_.open(filename);
++      if(!trajectory_file_) throw std::runtime_error("cannot open trajectory_file");
++      trajectory_file_ << "# timestamp tx ty tz qx qy qz qw; R_world_camera; position fixed at zero\n";
++    }
++    image_pub_ = nh_->create_publisher<sensor_msgs::msg::Image>("pano_map", rclcpp::QoS(1).reliable().transient_local());
+ }
+ 
+ PoseGraphOptimizer::~PoseGraphOptimizer()
+ {
++    if (event_warper_ && !map_file_.empty()) {
++      try {
++        cv::Mat raw; event_warper_->getIG(raw);
++        cv::FileStorage fs(map_file_ + ".raw.yml.gz", cv::FileStorage::WRITE);
++        if(!fs.isOpened()) throw std::runtime_error("cannot save raw map");
++        fs << "IG" << raw;
++        cv::Mat disp; cv::normalize(raw, disp, 0, 255, cv::NORM_MINMAX, CV_8UC1);
++        disp=255-disp;
++        if(!cv::imwrite(map_file_ + ".png",disp)) throw std::runtime_error("cannot save map PNG");
++      } catch(const std::exception& e) { RCLCPP_ERROR(nh_->get_logger(), "Map save: %s", e.what()); }
++    }
+     delete traj_;
+     delete event_warper_;
+-    image_pub_.shutdown();
++    image_pub_.reset();
+ }
+ 
+ void PoseGraphOptimizer::initialize(int camera_width, int camera_height,
+                                     const PoseGraphParams &opt,
+-                                    std::vector<dvs_msgs::Event>* ptr,
++                                    std::vector<cmax_port::Event>* ptr,
+                                     std::vector<cv::Point3d>* precomputed_bearing_vectors_ptr)
+ {
+     // Load params
+@@ -46,8 +64,8 @@
+                               precomputed_bearing_vectors_ptr);
+ 
+     // Initialize time cursors for sliding window
+-    win_size_ = ros::Duration(params.sliding_window_opt.time_window_size);
+-    win_stride_ = ros::Duration(params.sliding_window_opt.sliding_window_stride);
++    win_size_ = cmax_port::Duration(params.sliding_window_opt.time_window_size);
++    win_stride_ = cmax_port::Duration(params.sliding_window_opt.sliding_window_stride);
+     time_window_initialized_ = false;
+     first_time_window_ = true;
+ 
+@@ -70,7 +88,7 @@
+ }
+ 
+ 
+-void PoseGraphOptimizer::pushAngVel(const ros::Time& ts,
++void PoseGraphOptimizer::pushAngVel(const cmax_port::Time& ts,
+                                     const Eigen::Vector3d& ang_vel)
+ {
+     if(!time_window_initialized_)
+@@ -128,20 +146,22 @@
+     return false;
+ }
+ 
+-void PoseGraphOptimizer::getEventSubset(const ros::Time& t_beg,
+-                                        const ros::Time& t_end)
++void PoseGraphOptimizer::getEventSubset(const cmax_port::Time& t_beg,
++                                        const cmax_port::Time& t_end)
+ {
+     std::unique_lock<std::mutex> ev_lock(mutex_events);
+     // Search for the begin/end idx of the event subset through a coarse-to-fine strategy
+     // 1. Search at the event packet level
+-    std::map<ros::Time,int>::iterator ev_beg_iter = ev_subset_ts_map_.upper_bound(t_beg);
+-    std::map<ros::Time,int>::iterator ev_end_iter = ev_subset_ts_map_.lower_bound(t_end);
++    std::map<cmax_port::Time,int>::iterator ev_beg_iter = ev_subset_ts_map_.upper_bound(t_beg);
++    std::map<cmax_port::Time,int>::iterator ev_end_iter = ev_subset_ts_map_.lower_bound(t_end);
+     // 2. Search at the by-event level (Do we really need this fine searching?)
+     // (1) The begin index is already very accurate, we do not need to change it
++    if(ev_beg_iter==ev_subset_ts_map_.end() || ev_end_iter==ev_subset_ts_map_.end())
++        throw std::runtime_error("backend event-window bounds unavailable");
+     int ev_beg_idx = ev_beg_iter->second;
+     // (2) We should search for a more accurate end index
+     int ev_end_idx = ev_end_iter->second;
+-    const ros::Time t_end_mod = t_end-ros::Duration(1e-6); // Leave a small t_epsilon for safety
++    const cmax_port::Time t_end_mod = t_end-cmax_port::Duration(1e-6); // Leave a small t_epsilon for safety
+     while (events_ptr_->at(ev_end_idx).ts > t_end_mod)
+     {
+         // Move at 100 events' stride (do not need to check one by one)
+@@ -154,7 +174,7 @@
+     }
+ 
+     // Copy events into the event subset
+-    event_subset_ = std::vector<dvs_msgs::Event>(events_ptr_->begin() + ev_beg_idx,
++    event_subset_ = std::vector<cmax_port::Event>(events_ptr_->begin() + ev_beg_idx,
+                                                  events_ptr_->begin() + ev_end_idx);
+ 
+     // Erase the indexes of the used evenet packt in the look-up table
+@@ -164,8 +184,8 @@
+     ang_vel_estimator_->deleteOldEvents(ev_beg_idx);
+ }
+ 
+-AngVelMap PoseGraphOptimizer::getAngVelSubset(const ros::Time& t_beg,
+-                                              const ros::Time& t_end)
++AngVelMap PoseGraphOptimizer::getAngVelSubset(const cmax_port::Time& t_beg,
++                                              const cmax_port::Time& t_end)
+ {
+     // Lock data that is accessible by both frontend and backend
+     std::unique_lock<std::mutex> lock(mutex_ang_vel);
+@@ -313,7 +333,7 @@
+     }
+ 
+     // Update the latest pose, to prepare for the next time window
+-    pose_latest_.first = t_win_end_- ros::Duration(1e-6);
++    pose_latest_.first = t_win_end_- cmax_port::Duration(1e-6);
+     pose_latest_.second = traj_->evaluate(pose_latest_.first);
+     ts_event_image_ = t_win_end_;
+ 
+@@ -326,9 +346,9 @@
+ {
+     // Update the map storing the visit time of each pixel
+     const double dt_check_update = 0.05;
+-    const ros::Time t_check_update_time_end = t_win_beg_ + win_stride_;
+-    for (ros::Time t_check = t_win_beg_; t_check < t_check_update_time_end;
+-         t_check += ros::Duration(dt_check_update))
++    const cmax_port::Time t_check_update_time_end = t_win_beg_ + win_stride_;
++    for (cmax_port::Time t_check = t_win_beg_; t_check < t_check_update_time_end;
++         t_check += cmax_port::Duration(dt_check_update))
+     {
+         // Get pose at every 0.05s, update the visit time of the pixel within the FOV
+         const Sophus::SO3d rot_check = traj_->evaluate(t_check);
+@@ -355,7 +375,7 @@
+ 
+ void PoseGraphOptimizer::Run()
+ {
+-    while(1)
++    while (isReadyFrontendPoses())
+     {
+         // If all frontend angular velocity of current time window are collected
+         if (isReadyFrontendPoses())
+@@ -370,6 +390,8 @@
+             processTimeWindow(ang_vel_subset);
+ 
+             // Slide window, prepare for the next time window
++            publishTrajectory();
++            ++windows_processed_;
+             slideWindow();
+         }
+     }
+@@ -377,8 +399,6 @@
+ 
+ void PoseGraphOptimizer::publishEventImage()
+ {
+-    if (image_pub_.getNumSubscribers() <= 0)
+-        return;
+ 
+     // Get the global map
+     cv::Mat IG_disp;
+@@ -394,10 +414,10 @@
+     if (params.draw_FOV)
+     {
+         // Convert the canvas to the BGR space
+-        cv::cvtColor(IG_disp, IG_disp, CV_GRAY2BGR);
++        cv::cvtColor(IG_disp, IG_disp, cv::COLOR_GRAY2BGR);
+ 
+         // Plot the current FOV
+-        ros::Time t_plot = t_win_end_ - ros::Duration(1e-6);
++        cmax_port::Time t_plot = t_win_end_ - cmax_port::Duration(1e-6);
+         const Sophus::SO3d pose_traj = traj_->evaluate(t_plot);
+         event_warper_->drawSensorFOV(IG_disp, pose_traj, cv::Vec3i(255, 0, 0));
+     }
+@@ -407,9 +427,34 @@
+     cv_iwe_image.encoding = params.draw_FOV ? "bgr8": "mono8";
+     IG_disp.copyTo(cv_iwe_image.image);
+ 
+-    sensor_msgs::ImagePtr msg = cv_iwe_image.toImageMsg();
+-    msg->header.stamp = ts_event_image_;
+-    image_pub_.publish(msg);
++    sensor_msgs::msg::Image::SharedPtr msg = cv_iwe_image.toImageMsg();
++    msg->header.stamp = cmax_port::stamp(ts_event_image_);
++    msg->header.frame_id = "cmax_world";
++    image_pub_->publish(*msg);
+ }
+ 
+ } // namespace
++
++namespace cmax_slam {
++void PoseGraphOptimizer::publishTrajectory() {
++  // Export the outgoing, now finalized stride. Do not publish a fabricated position.
++  for(auto t=t_win_beg_; t<t_win_beg_+win_stride_; t+=cmax_port::Duration(0.01)) {
++    const auto q=traj_->evaluate(t).unit_quaternion();
++    geometry_msgs::msg::PoseStamped pose;
++    pose.header.frame_id="cmax_world"; pose.header.stamp=cmax_port::stamp(t);
++    pose.pose.orientation.x=q.x(); pose.pose.orientation.y=q.y();
++    pose.pose.orientation.z=q.z(); pose.pose.orientation.w=q.w();
++    pose_pub_->publish(pose);
++    path_.header=pose.header; path_.poses.push_back(pose);
++    geometry_msgs::msg::TransformStamped tf;
++    tf.header=pose.header; tf.child_frame_id="cmax_camera_optical";
++    tf.transform.rotation=pose.pose.orientation;
++    tf_pub_->sendTransform(tf);
++    if(trajectory_file_) trajectory_file_ << t.ns/1000000000LL << "." << std::setw(9) << std::setfill('0') << t.ns%1000000000LL
++      << std::setfill(' ') << std::setprecision(17) << " 0 0 0 " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << "\n";
++  }
++  if(path_.poses.size()>10000) path_.poses.erase(path_.poses.begin(),path_.poses.end()-10000);
++  path_pub_->publish(path_);
++  trajectory_file_.flush();
++}
++}
+--- upstream/src/backend/trajectory.cpp
++++ port/src/backend/trajectory.cpp
+@@ -7,8 +7,8 @@
+ PoseEntry Trajectory::interpPoseMid(const PoseEntry& p1, const PoseEntry& p2)
+ {
+     // Load two poses
+-    const ros::Duration dt = p2.first - p1.first;
+-    ros::Time t_mid = p1.first + dt * 0.5;
++    const cmax_port::Duration dt = p2.first - p1.first;
++    cmax_port::Time t_mid = p1.first + dt * 0.5;
+     const Sophus::SO3d R1 = p1.second;
+     const Sophus::SO3d R2 = p2.second;
+ 
+@@ -83,7 +83,7 @@
+ }
+ 
+ 
+-Sophus::SO3d LinearTrajectory::evaluate(const ros::Time &t, int* start_idx,
++Sophus::SO3d LinearTrajectory::evaluate(const cmax_port::Time &t, int* start_idx,
+                                         cv::Mat *jacobian)
+ {
+     int64_t nsec = t.toNSec();
+@@ -192,8 +192,8 @@
+ }
+ 
+ void LinearTrajectory::initializeCtrlPoses(PoseMap& poses,
+-                                           const ros::Time& t_beg,
+-                                           const ros::Time& t_end)
++                                           const cmax_port::Time& t_beg,
++                                           const cmax_port::Time& t_end)
+ {
+     // Compute the number of newly generated control poses
+     const double time_interval = (t_end - t_beg).toSec();
+@@ -208,8 +208,8 @@
+ }
+ 
+ std::vector<Sophus::SO3d> LinearTrajectory::generateCtrlPoses(PoseMap& poses,
+-                                                              const ros::Time& t_beg,
+-                                                              const ros::Time& t_end)
++                                                              const cmax_port::Time& t_beg,
++                                                              const cmax_port::Time& t_end)
+ {
+     // Compute the number of newly generated control poses
+     const int num_cps = std::round((t_end - t_beg).toSec()/dt_knots_) + 1;
+@@ -326,7 +326,7 @@
+     for (auto const& p : cps) { spline_.knotsPushBack(p); }
+ }
+ 
+-Sophus::SO3d CubicTrajectory::evaluate(const ros::Time &t, int *start_idx,
++Sophus::SO3d CubicTrajectory::evaluate(const cmax_port::Time &t, int *start_idx,
+                                                          cv::Mat *jacobian)
+ {
+     int64_t nsec = t.toNSec();
+@@ -464,8 +464,8 @@
+ }
+ 
+ void CubicTrajectory::initializeCtrlPoses(PoseMap& poses,
+-                                          const ros::Time& t_beg,
+-                                          const ros::Time& t_end)
++                                          const cmax_port::Time& t_beg,
++                                          const cmax_port::Time& t_end)
+ {
+     // Compute the number of newly generated control poses
+     const int num_cps = std::round((t_end - t_beg).toSec()/dt_knots_) + 3;
+@@ -478,8 +478,8 @@
+ }
+ 
+ std::vector<Sophus::SO3d> CubicTrajectory::generateCtrlPoses(PoseMap& poses,
+-                                                             const ros::Time& t_beg,
+-                                                             const ros::Time& t_end)
++                                                             const cmax_port::Time& t_beg,
++                                                             const cmax_port::Time& t_end)
+ {
+     // Compute the number of newly generated control poses
+     const int num_cps = std::round((t_end - t_beg).toSec()/dt_knots_) + 3;
+--- upstream/src/cmax_slam.cpp
++++ port/src/cmax_slam.cpp
+@@ -1,6 +1,5 @@
+ #include "cmax_slam.h"
+ #include <glog/logging.h>
+-#include <camera_info_manager/camera_info_manager.h>
+ 
+ #include <string>
+ #include <sstream>
+@@ -11,39 +10,39 @@
+ 
+ static const double rad2degFactor = 180.0 * M_1_PI;
+ 
+-CMaxSLAM::CMaxSLAM(ros::NodeHandle& nh)
++CMaxSLAM::CMaxSLAM(rclcpp::Node& nh)
+     : nh_(nh)
+-    , pnh_("~")
++
+ 
+ {
+     // Load test configurations
+     // Topic info
+-    const std::string events_topic = pnh_.param<std::string>("events_topic", "/dvs/events");
+-    const std::string camera_info_topic = pnh_.param<std::string>("camera_info_topic", "/dvs/camera_info");
++    const std::string events_topic = nh_.declare_parameter<std::string>("events_topic", "/dvs/events");
++    const std::string camera_info_topic = nh_.declare_parameter<std::string>("camera_info_topic", "/dvs/camera_info");
+ 
+     LOG(INFO) << "Event topic: " << events_topic;
+     LOG(INFO) << "Camera info topic: " << camera_info_topic;
+ 
+     // Set up subscribers
+-    event_sub_ = nh_.subscribe(events_topic, 0, &CMaxSLAM::eventsCallback, this);
+-    camera_info_sub_ = nh_.subscribe(camera_info_topic, 0, &CMaxSLAM::cameraInfoCallback, this);
++    event_sub_ = nh_.create_subscription<cmax_slam_ros2::msg::EventArray>(events_topic, rclcpp::QoS(100).reliable(), [this](cmax_slam_ros2::msg::EventArray::ConstSharedPtr m){eventsCallback(m);});
++    camera_info_sub_ = nh_.create_subscription<sensor_msgs::msg::CameraInfo>(camera_info_topic, rclcpp::QoS(1).reliable().transient_local(), [this](sensor_msgs::msg::CameraInfo::ConstSharedPtr m){cameraInfoCallback(m);});
+     got_camera_info_ = false;
+ 
+     // Load prcessing options
+     OptionsProcess process_opt;
+-    process_opt.contrast_measure = pnh_.param<int>("contrast_measure", 0);
++    process_opt.contrast_measure = nh_.declare_parameter<int>("contrast_measure", 0);
+ 
+     LOG(INFO) << "*************** Processing options ******************";
+     LOG(INFO) << "Contrast Measure: " << ((process_opt.contrast_measure == 0)? "Variance": "Mean Square");
+ 
+     // Load front-end configurations
+     front_end_params_.process_opt = process_opt;
+-    front_end_params_.num_events_per_packet = pnh_.param<int>("num_events_per_packet", 30000);
+-    front_end_params_.dt_ang_vel = pnh_.param<double>("dt_ang_vel", 0.02);
+-    front_end_params_.warp_opt.blur_sigma = pnh_.param<double>("frontend_blur_sigma", 1.0);
+-    front_end_params_.warp_opt.event_batch_size = pnh_.param<int>("event_batch_size", 100);
+-    front_end_params_.warp_opt.event_sample_rate = pnh_.param<int>("frontend_event_sample_rate", 1);
+-    front_end_params_.data_opt.show_iwe = pnh_.param<bool>("show_local_iwe", false);
++    front_end_params_.num_events_per_packet = nh_.declare_parameter<int>("num_events_per_packet", 30000);
++    front_end_params_.dt_ang_vel = nh_.declare_parameter<double>("dt_ang_vel", 0.02);
++    front_end_params_.warp_opt.blur_sigma = nh_.declare_parameter<double>("frontend_blur_sigma", 1.0);
++    front_end_params_.warp_opt.event_batch_size = nh_.declare_parameter<int>("event_batch_size", 100);
++    front_end_params_.warp_opt.event_sample_rate = nh_.declare_parameter<int>("frontend_event_sample_rate", 1);
++    front_end_params_.data_opt.show_iwe = nh_.declare_parameter<bool>("show_local_iwe", false);
+ 
+     LOG(INFO) << "*************** Front-end params ******************";
+     LOG(INFO) << "frontend_blur_sigma: " << front_end_params_.warp_opt.blur_sigma;
+@@ -52,21 +51,21 @@
+ 
+     // Load back-end configurations
+     back_end_params_.process_opt = process_opt;
+-    back_end_params_.sliding_window_opt.time_window_size = pnh_.param<double>("backend_time_window_size", 0.2);
+-    back_end_params_.sliding_window_opt.sliding_window_stride = pnh_.param<double>("backend_sliding_window_stride", 0.1);
+-    back_end_params_.warp_opt.blur_sigma = pnh_.param<double>("backend_blur_sigma", 1.0);
++    back_end_params_.sliding_window_opt.time_window_size = nh_.declare_parameter<double>("backend_time_window_size", 0.2);
++    back_end_params_.sliding_window_opt.sliding_window_stride = nh_.declare_parameter<double>("backend_sliding_window_stride", 0.1);
++    back_end_params_.warp_opt.blur_sigma = nh_.declare_parameter<double>("backend_blur_sigma", 1.0);
+     back_end_params_.warp_opt.event_batch_size = front_end_params_.warp_opt.event_batch_size;
+-    back_end_params_.warp_opt.event_sample_rate = pnh_.param<int>("backend_event_sample_rate", 1);
+-    back_end_params_.traj_opt.dt_knots = pnh_.param<double>("dt_knots", 0.1);
+-    back_end_params_.traj_opt.spline_degree = pnh_.param<int>("spline_degree", 1);
+-    back_end_params_.data_opt.show_iwe = pnh_.param<bool>("show_pano_map", true);
+-    back_end_params_.map_opt.pano_height = pnh_.param<int>("pano_height", 1024);
++    back_end_params_.warp_opt.event_sample_rate = nh_.declare_parameter<int>("backend_event_sample_rate", 1);
++    back_end_params_.traj_opt.dt_knots = nh_.declare_parameter<double>("dt_knots", 0.1);
++    back_end_params_.traj_opt.spline_degree = nh_.declare_parameter<int>("spline_degree", 1);
++    back_end_params_.data_opt.show_iwe = nh_.declare_parameter<bool>("show_pano_map", true);
++    back_end_params_.map_opt.pano_height = nh_.declare_parameter<int>("pano_height", 1024);
+     back_end_params_.map_opt.pano_width = 2 * back_end_params_.map_opt.pano_height;
+-    back_end_params_.map_opt.Y_angle = pnh_.param<double>("Y_angle", 0.0);
+-    back_end_params_.map_opt.backend_min_ev_rate = pnh_.param<int>("backend_min_ev_rate", 10);
+-    back_end_params_.map_opt.max_update_times = pnh_.param<int>("max_update_times", 10);
+-    back_end_params_.draw_FOV = pnh_.param<bool>("draw_FOV", false);
+-    back_end_params_.gamma = pnh_.param<double>("gamma", 0.75);
++    back_end_params_.map_opt.Y_angle = nh_.declare_parameter<double>("Y_angle", 0.0);
++    back_end_params_.map_opt.backend_min_ev_rate = nh_.declare_parameter<int>("backend_min_ev_rate", 10);
++    back_end_params_.map_opt.max_update_times = nh_.declare_parameter<int>("max_update_times", 10);
++    back_end_params_.draw_FOV = nh_.declare_parameter<bool>("draw_FOV", false);
++    back_end_params_.gamma = nh_.declare_parameter<double>("gamma", 0.75);
+ 
+     LOG(INFO) << "*************** Back-end params ******************";
+     LOG(INFO) << "time_window_size: " << back_end_params_.sliding_window_opt.time_window_size;
+@@ -82,6 +81,15 @@
+     LOG(INFO) << "draw_FOV = " << back_end_params_.draw_FOV;
+     LOG(INFO) << "gamma = " << back_end_params_.gamma;
+ 
++    if(front_end_params_.warp_opt.event_sample_rate<1 || back_end_params_.warp_opt.event_sample_rate<1 ||
++       front_end_params_.warp_opt.event_batch_size<1 || front_end_params_.num_events_per_packet<2 ||
++       front_end_params_.dt_ang_vel<=0 || back_end_params_.traj_opt.dt_knots<=0 ||
++       back_end_params_.sliding_window_opt.sliding_window_stride<=0 ||
++       back_end_params_.sliding_window_opt.time_window_size < back_end_params_.sliding_window_opt.sliding_window_stride ||
++       (back_end_params_.traj_opt.spline_degree!=1 && back_end_params_.traj_opt.spline_degree!=3) ||
++       std::abs(back_end_params_.sliding_window_opt.sliding_window_stride/back_end_params_.traj_opt.dt_knots -
++         std::round(back_end_params_.sliding_window_opt.sliding_window_stride/back_end_params_.traj_opt.dt_knots))>1e-8)
++        throw std::invalid_argument("invalid CMax window, sampling or spline parameters");
+     // New a angular velocity estimator (the front-end runs in the main thread)
+     ang_vel_estimator_ = new AngVelEstimator(&nh_);
+ 
+@@ -89,7 +97,7 @@
+     pose_graph_optimizer_ = new PoseGraphOptimizer(&nh_);
+ 
+     // Initialize the back-end thread and launch
+-    pose_graph_optim_ = new std::thread(&PoseGraphOptimizer::Run, pose_graph_optimizer_);
++    // No worker thread: process identical ready windows serially in the event callback.
+ 
+     // Set the pointer to each other
+     ang_vel_estimator_->setBackend(pose_graph_optimizer_);
+@@ -98,7 +106,6 @@
+ 
+ CMaxSLAM::~CMaxSLAM()
+ {
+-    pose_graph_optim_->detach();
+     delete ang_vel_estimator_;
+     delete pose_graph_optimizer_;
+ }
+@@ -119,16 +126,18 @@
+     }
+ }
+ 
+-void CMaxSLAM::cameraInfoCallback(const sensor_msgs::CameraInfo::ConstPtr& camera_info)
++void CMaxSLAM::cameraInfoCallback(const sensor_msgs::msg::CameraInfo::ConstSharedPtr& camera_info)
+ {
+     if(!got_camera_info_)
+     {
+-        ROS_INFO("Loading camera information");
++        RCLCPP_INFO(nh_.get_logger(), "Loading camera information");
++        if(camera_info->width==0 || camera_info->height==0 || camera_info->k[0]<=0 || camera_info->p[0]<=0)
++            throw std::runtime_error("invalid camera intrinsics");
+         cam.fromCameraInfo(camera_info);
+         got_camera_info_ = true;
+ 
+-        ROS_INFO("Camera info got");
+-        camera_info_sub_.shutdown(); // no need to listen to this topic any more
++        RCLCPP_INFO(nh_.get_logger(), "Camera info got");
++        camera_info_sub_.reset(); // no need to listen to this topic any more
+ 
+         // Initialze the front-end
+         precomputeBearingVectors();
+@@ -144,19 +153,30 @@
+     }
+ }
+ 
+-void CMaxSLAM::eventsCallback(const dvs_msgs::EventArray::ConstPtr &msg)
++void CMaxSLAM::eventsCallback(const cmax_slam_ros2::msg::EventArray::ConstSharedPtr &msg)
+ {
+     if(!got_camera_info_)
+     {
+-        ROS_ERROR("Received events but camera info is still missing");
++        throw std::runtime_error("events arrived before calibration; offline mode supplies calibration first");
+         return;
+     }
+ 
+-    for (auto ev = msg->events.begin(); ev < msg->events.end();
+-         ev += front_end_params_.warp_opt.event_sample_rate)
++    for (size_t event_idx=0; event_idx<msg->events.size();
++         event_idx += front_end_params_.warp_opt.event_sample_rate)
+     {
++        const auto ev = msg->events.begin() + event_idx;
+         // Push events into the frontend, which will pass them to the backend then.
+-        ang_vel_estimator_->pushEvent(*ev);
++        if(msg->width!=static_cast<uint32_t>(cam.fullResolution().width) || msg->height!=static_cast<uint32_t>(cam.fullResolution().height))
++            throw std::runtime_error("event dimensions disagree with calibration");
++        const auto ns=int64_t(ev->ts.sec)*1000000000LL+ev->ts.nanosec;
++        if(ns<last_event_ns_ || ev->x>=msg->width || ev->y>=msg->height || ev->ts.nanosec>=1000000000U)
++            throw std::runtime_error("out-of-order or invalid event");
++        last_event_ns_=ns;
++        cmax_port::Event e; e.x=ev->x; e.y=ev->y; e.polarity=ev->polarity;
++        e.ts=cmax_port::Time::fromNSec(ns);
++        ang_vel_estimator_->pushEvent(e);
++        ++events_received_;
++        pose_graph_optimizer_->Run();
+     }
+ }
+ 
+--- upstream/src/frontend/ang_vel_estimator.cpp
++++ port/src/frontend/ang_vel_estimator.cpp
+@@ -1,9 +1,6 @@
+ #include "frontend/ang_vel_estimator.h"
+ #include "utils/image_geom_util.h"
+ 
+-#include <camera_info_manager/camera_info_manager.h>
+-#include <geometry_msgs/TwistStamped.h>
+-#include <sensor_msgs/Image.h>
+ #include <opencv2/highgui.hpp>
+ #include <glog/logging.h>
+ 
+@@ -16,11 +13,11 @@
+ 
+ static const double rad2degFactor = 180.0 * M_1_PI;
+ 
+-AngVelEstimator::AngVelEstimator(ros::NodeHandle* nh): nh_(nh), it_(*nh)
++AngVelEstimator::AngVelEstimator(rclcpp::Node* nh): nh_(nh)
+ {
+     // Set publishers
+-    img_pub_ = it_.advertise("local_iwe", 1);
+-    ang_vel_pub_ = nh_->advertise<geometry_msgs::TwistStamped>("/dvs/angular_velocity", 1);
++    img_pub_ = nh_->create_publisher<sensor_msgs::msg::Image>("local_iwe", rclcpp::QoS(1).reliable().transient_local());
++    ang_vel_pub_ = nh_->create_publisher<geometry_msgs::msg::TwistStamped>("angular_velocity", 10);
+ 
+     // Initial value of motion parameters velocity
+     ang_vel_ = cv::Point3d(0.,0.,0.);
+@@ -28,8 +25,8 @@
+ 
+ AngVelEstimator::~AngVelEstimator()
+ {
+-    img_pub_.shutdown();
+-    ang_vel_pub_.shutdown();
++    img_pub_.reset();
++    ang_vel_pub_.reset();
+ }
+ 
+ void AngVelEstimator::initialize(image_geometry::PinholeCameraModel* cam,
+@@ -57,7 +54,7 @@
+     event_subset_.reserve(val.num_events_per_packet);
+ 
+     // Set frequency of the output angular velocity
+-    dt_av_ = ros::Duration(val.dt_ang_vel);
++    dt_av_ = cmax_port::Duration(val.dt_ang_vel);
+ 
+     // Setttings for sliding window
+     sliding_window_initialized_ = false;
+@@ -65,7 +62,7 @@
+     VLOG(1) << "Front-end initialized";
+ }
+ 
+-void AngVelEstimator::pushEvent(const dvs_msgs::Event& event)
++void AngVelEstimator::pushEvent(const cmax_port::Event& event)
+ {
+     if (!sliding_window_initialized_)
+     {
+@@ -90,7 +87,7 @@
+ 
+         // Push back into the event subset information list (front-end) and look-up table (back-end)
+         event_subsets_info_.emplace_back(std::pair<int, int>(idx_subset_beg, idx_subset_end));
+-        pose_graph_optimizer_->ev_subset_ts_map_.insert(std::pair<ros::Time, int>(event.ts, num_event_total_-1));
++        pose_graph_optimizer_->ev_subset_ts_map_.insert(std::pair<cmax_port::Time, int>(event.ts, num_event_total_-1));
+ 
+         // Update time_packet_, to prepare for the next packet
+         time_get_subset_ += dt_av_;
+@@ -139,7 +136,7 @@
+     // Get event subset
+     ev_beg_idx_ = event_subsets_info_.front().first;
+     ev_end_idx_ = event_subsets_info_.front().second;
+-    event_subset_ = std::vector<dvs_msgs::Event>(events_.begin() + ev_beg_idx_,
++    event_subset_ = std::vector<cmax_port::Event>(events_.begin() + ev_beg_idx_,
+                                                  events_.begin() + ev_end_idx_);
+ 
+     // Erase the used event subset
+@@ -191,19 +188,17 @@
+ void AngVelEstimator::publishAngularVelocity()
+ {
+     // Publish motion parameters
+-    geometry_msgs::TwistStamped twist_msg;
+-    twist_msg.twist.angular.x = ang_vel_.x * rad2degFactor;
+-    twist_msg.twist.angular.y = ang_vel_.y * rad2degFactor;
+-    twist_msg.twist.angular.z = ang_vel_.z * rad2degFactor;
+-    twist_msg.header.stamp = time_packet_;
+-    twist_msg.header.frame_id = "body";
+-    ang_vel_pub_.publish(twist_msg);
++    geometry_msgs::msg::TwistStamped twist_msg;
++    twist_msg.twist.angular.x = ang_vel_.x;
++    twist_msg.twist.angular.y = ang_vel_.y;
++    twist_msg.twist.angular.z = ang_vel_.z;
++    twist_msg.header.stamp = cmax_port::stamp(time_packet_);
++    twist_msg.header.frame_id = "cmax_camera_optical";
++    ang_vel_pub_->publish(twist_msg);
+ }
+ 
+ void AngVelEstimator::publishEventImage()
+ {
+-    if (img_pub_.getNumSubscribers() <= 0)
+-        return;
+ 
+     static cv::Mat img_original, img_warped, img_stacked;
+     // Options to visualize the image of raw events and
+@@ -227,9 +222,10 @@
+ 
+     // Publish images (without and with motion compensation)
+     cv_event_image_.encoding = "mono8";
+-    cv_event_image_.header.stamp = time_packet_;
++    cv_event_image_.header.stamp = cmax_port::stamp(time_packet_);
++    cv_event_image_.header.frame_id = "cmax_camera_optical";
+     img_stacked.convertTo(cv_event_image_.image,CV_8UC1);
+-    img_pub_.publish(cv_event_image_.toImageMsg());
++    img_pub_->publish(*cv_event_image_.toImageMsg());
+ }
+ 
+ } // namespace
+--- upstream/src/frontend/local_image_warped_events.cpp
++++ port/src/frontend/local_image_warped_events.cpp
+@@ -1,7 +1,6 @@
+ #include "utils/image_geom_util.h"
+ #include "frontend/ang_vel_estimator.h"
+ 
+-#include <ros/time.h>
+ #include <glog/logging.h>
+ #include <opencv2/highgui.hpp>
+ 
+@@ -60,17 +59,17 @@
+         const cv::Point3d& ang_vel,
+         const int& idx_event_batch_begin,
+         const int& idx_event_batch_end,
+-        const ros::Time time_ref,
++        const cmax_port::Time time_ref,
+         cv::Mat* image_warped,
+         cv::Mat* image_warped_deriv)
+ {
+     // All events in this batch share a common pose (for speed-up)
+-    ros::Time time_first = event_subset_.at(idx_event_batch_begin).ts;
+-    ros::Time time_last = event_subset_.at(idx_event_batch_end-1).ts;
+-    ros::Duration time_dt = time_last - time_first;
++    cmax_port::Time time_first = event_subset_.at(idx_event_batch_begin).ts;
++    cmax_port::Time time_last = event_subset_.at(idx_event_batch_end-1).ts;
++    cmax_port::Duration time_dt = time_last - time_first;
+     //CHECK_GT(time_dt.toSec(), 0.) << "Events must span a non-zero time interval";
+     CHECK_GE(time_dt.toSec(), 0.) << "Events must span a non-negative time interval";
+-    ros::Time time_batch = time_first + time_dt * 0.5;
++    cmax_port::Time time_batch = time_first + time_dt * 0.5;
+ 
+     const double dt = time_batch.toSec() - time_ref.toSec(); // faster than Duration object
+     const cv::Point3d delta_rot = ang_vel * dt;
+--- upstream/src/node.cpp
++++ port/src/node.cpp
+@@ -1,25 +1,77 @@
+-#include <ros/ros.h>
++#include "cmax_slam.h"
+ #include <glog/logging.h>
+-#include <gflags/gflags.h>
++#include <std_msgs/msg/string.hpp>
++#include <filesystem>
++#include <iostream>
++#include <cstring>
+ 
+-#include "cmax_slam.h"
+-
+-int main(int argc, char* argv[])
+-{
+-  // Initialize Google's logging library.
+-  google::InitGoogleLogging(argv[0]);
+-  google::ParseCommandLineFlags(&argc, &argv, true);
+-  google::InstallFailureSignalHandler();
+-  FLAGS_alsologtostderr = true;
+-  FLAGS_colorlogtostderr = true;
+-
+-  ros::init(argc, argv, "cmax_slam");
+-
+-  ros::NodeHandle nh;
+-
+-  cmax_slam::CMaxSLAM slam(nh);
+-
+-  ros::spin();
+-
+-  return 0;
++namespace {
++uint64_t read_le(std::istream& in, unsigned bytes) {
++  uint64_t v=0;
++  for(unsigned i=0;i<bytes;++i) { int c=in.get(); if(c==EOF) throw std::runtime_error("truncated event stream"); v|=uint64_t(uint8_t(c))<<(i*8); }
++  return v;
+ }
++sensor_msgs::msg::CameraInfo::SharedPtr load_camera(rclcpp::Node& n) {
++  auto c=std::make_shared<sensor_msgs::msg::CameraInfo>();
++  c->width=n.declare_parameter<int>("camera_width",0);
++  c->height=n.declare_parameter<int>("camera_height",0);
++  c->distortion_model=n.declare_parameter<std::string>("camera_distortion_model","plumb_bob");
++  c->d=n.declare_parameter<std::vector<double>>("camera_d",std::vector<double>{});
++  auto k=n.declare_parameter<std::vector<double>>("camera_k",std::vector<double>{});
++  auto r=n.declare_parameter<std::vector<double>>("camera_r",std::vector<double>{});
++  auto p=n.declare_parameter<std::vector<double>>("camera_p",std::vector<double>{});
++  if(k.size()!=9 || r.size()!=9 || p.size()!=12) throw std::runtime_error("offline mode needs camera_k[9], camera_r[9], camera_p[12] from converter calibration YAML");
++  std::copy(k.begin(),k.end(),c->k.begin()); std::copy(r.begin(),r.end(),c->r.begin()); std::copy(p.begin(),p.end(),c->p.begin());
++  c->header.frame_id="cmax_camera_optical";
++  return c;
++}
++}
++int main(int argc,char** argv) {
++  google::InitGoogleLogging(argv[0]); FLAGS_alsologtostderr=true;
++  rclcpp::init(argc,argv);
++  int result=0;
++  try {
++    auto node=std::make_shared<rclcpp::Node>("cmax_slam");
++    auto events_file=node->declare_parameter<std::string>("events_file","");
++    auto status=node->create_publisher<std_msgs::msg::String>("status",rclcpp::QoS(1).reliable().transient_local());
++    cmax_slam::CMaxSLAM slam(*node);
++    if(!events_file.empty()) {
++      auto camera=load_camera(*node); slam.cameraInfoCallback(camera);
++      std::ifstream input(events_file,std::ios::binary);
++      if(!input) throw std::runtime_error("cannot open events_file");
++      char magic[8]; input.read(magic,8);
++      if(std::memcmp(magic,"CMAXEV1\n",8)!=0) throw std::runtime_error("wrong event stream magic");
++      uint32_t width=read_le(input,4), height=read_le(input,4);
++      uint64_t count=read_le(input,8);
++      if(width!=camera->width || height!=camera->height) throw std::runtime_error("stream/calibration dimensions differ");
++      if(count>(UINT64_MAX-24)/13 || std::filesystem::file_size(events_file)!=24+count*13)
++        throw std::runtime_error("stream length/count mismatch");
++      uint64_t read_count=0;
++      while(rclcpp::ok() && read_count<count) {
++        auto packet=std::make_shared<cmax_slam_ros2::msg::EventArray>();
++        packet->width=width; packet->height=height;
++        for(unsigned i=0;i<4096 && read_count<count;++i,++read_count) {
++          cmax_slam_ros2::msg::Event e; e.x=read_le(input,2); e.y=read_le(input,2);
++          auto ns=read_le(input,8); if(ns>INT64_MAX) throw std::runtime_error("timestamp overflow");
++          e.ts=cmax_port::stamp(cmax_port::Time::fromNSec(ns));
++          auto pol=read_le(input,1); if(pol>1) throw std::runtime_error("invalid polarity"); e.polarity=pol;
++          packet->events.push_back(e);
++        }
++        slam.eventsCallback(packet);
++        rclcpp::spin_some(node);
++      }
++      std_msgs::msg::String done;
++      done.data="read_events="+std::to_string(read_count)+" processed_events="+std::to_string(slam.events_received())+
++        " optimized_windows="+std::to_string(slam.windows_processed())+" eof="+(read_count==count?"true":"false");
++      status->publish(done); RCLCPP_INFO(node->get_logger(),"%s",done.data.c_str());
++      if(read_count==count && slam.windows_processed()==0) throw std::runtime_error("no complete optimized window; check calibration, data and packet parameters");
++      // Keep transient-local panorama/path available to RViz. Ctrl-C saves final raw map.
++      if(rclcpp::ok()) rclcpp::spin(node);
++    } else {
++      RCLCPP_INFO(node->get_logger(),"Topic mode: reliable EventArray; publish transient-local CameraInfo before events");
++      rclcpp::spin(node);
++    }
++  } catch(const std::exception& e) { std::cerr<<"CMax ROS2: "<<e.what()<<'\n'; result=1; }
++  if(rclcpp::ok()) rclcpp::shutdown();
++  google::ShutdownGoogleLogging(); return result;
++}
+--- upstream/include/backend/equirectangular_camera.h
++++ port/include/backend/equirectangular_camera.h
+@@ -1,3 +1,4 @@
++#include "cmax_port/types.hpp"
+ #pragma once
+ 
+ #include <opencv2/opencv.hpp>
+--- upstream/include/backend/event_pano_warper.h
++++ port/include/backend/event_pano_warper.h
+@@ -1,3 +1,4 @@
++#include "cmax_port/types.hpp"
+ #pragma once
+ 
+ #include "backend/trajectory.h"
+@@ -8,12 +9,7 @@
+ 
+ #include <vector>
+ 
+-#include <ros/ros.h>
+-#include <dvs_msgs/Event.h>
+-#include <dvs_msgs/EventArray.h>
+-#include <sensor_msgs/Imu.h>
+-#include <sensor_msgs/CameraInfo.h>
+-#include <image_geometry/pinhole_camera_model.h>
++#include <image_geometry/pinhole_camera_model.hpp>
+ 
+ namespace cmax_slam {
+ 
+@@ -47,7 +43,7 @@
+                        const cv::Vec3i& color);
+ 
+     // Set the start time of the next trajectory
+-    void setNextWinBegTime(const ros::Time& val) { t_next_win_beg_ = val; }
++    void setNextWinBegTime(const cmax_port::Time& val) { t_next_win_beg_ = val; }
+ 
+     // Set the number of fixed control poses in the current time window
+     void setNumFixedCtrlPoses(const int val) { num_cps_fixed_ = val; }
+@@ -57,14 +53,14 @@
+ 
+     // Compute IWE
+     void computeImageOfWarpedEvents(Trajectory* traj,
+-                                    std::vector<dvs_msgs::Event>* event_subset,
++                                    std::vector<cmax_port::Event>* event_subset,
+                                     cv::Mat* iwe,
+                                     std::vector<cv::Mat>* iwe_deriv);
+ 
+     // Process events by batch to speed up, all events in the same batch share a common pose
+     void warpAndAccumulateEvents(Trajectory* traj,
+-                                 std::vector<dvs_msgs::Event>::iterator event_begin,
+-                                 std::vector<dvs_msgs::Event>::iterator event_end,
++                                 std::vector<cmax_port::Event>::iterator event_begin,
++                                 std::vector<cmax_port::Event>::iterator event_end,
+                                  std::vector<cv::Mat>* iwe_deriv);
+ 
+     // Adaptive alpha for global alignment: I = IL + alpha * IG
+@@ -98,7 +94,7 @@
+     cv::Size pano_size_;
+ 
+     // Sliding window
+-    ros::Time t_next_win_beg_; // To distinguish events that should be on the old/new map
++    cmax_port::Time t_next_win_beg_; // To distinguish events that should be on the old/new map
+ 
+     // Number of fixed control poses in the current time window
+     int num_cps_fixed_;
+--- upstream/include/backend/global_focus_funcs.h
++++ port/include/backend/global_focus_funcs.h
+@@ -1,3 +1,4 @@
++#include "cmax_port/types.hpp"
+ #pragma once
+ 
+ #include <opencv2/core.hpp>
+--- upstream/include/backend/global_optim_contrast_gsl.h
++++ port/include/backend/global_optim_contrast_gsl.h
+@@ -1,3 +1,4 @@
++#include "cmax_port/types.hpp"
+ #pragma once
+ 
+ #include "backend/global_focus_funcs.h"
+--- upstream/include/backend/pose_graph_optimizer.h
++++ port/include/backend/pose_graph_optimizer.h
+@@ -1,21 +1,18 @@
++#include "cmax_port/types.hpp"
++#include <nav_msgs/msg/path.hpp>
++#include <geometry_msgs/msg/pose_stamped.hpp>
++#include <tf2_ros/transform_broadcaster.h>
+ #pragma once
+ 
+ #include "frontend/ang_vel_estimator.h"
+ #include "backend/event_pano_warper.h"
+ #include "utils/parameters.h"
+ 
+-#include <ros/ros.h>
+ #include <opencv2/core.hpp>
+ 
+-#include <cv_bridge/cv_bridge.h>
+-#include <image_transport/image_transport.h>
++#include <cv_bridge/cv_bridge.hpp>
+ 
+-#include <sensor_msgs/CameraInfo.h>
+-#include <sensor_msgs/Image.h>
+-#include <sensor_msgs/Imu.h>
+ 
+-#include <dvs_msgs/Event.h>
+-#include <dvs_msgs/EventArray.h>
+ 
+ #include <deque>
+ #include <vector>
+@@ -27,14 +24,14 @@
+ 
+ class AngVelEstimator;
+ 
+-typedef std::pair<ros::Time, Eigen::Vector3d> AngVelEntry;
+-typedef std::map<ros::Time, Eigen::Vector3d> AngVelMap;
++typedef std::pair<cmax_port::Time, Eigen::Vector3d> AngVelEntry;
++typedef std::map<cmax_port::Time, Eigen::Vector3d> AngVelMap;
+ typedef std::pair<int, int> EvIdxPair;
+ 
+ class PoseGraphOptimizer {
+ public:
+     // Constructor
+-    PoseGraphOptimizer(ros::NodeHandle* nh);
++    PoseGraphOptimizer(rclcpp::Node* nh);
+ 
+     // Deconstructor
+     ~PoseGraphOptimizer();
+@@ -42,17 +39,18 @@
+     // Initialize the backend
+     void initialize(int camera_width, int camera_height,
+                     const PoseGraphParams& val,
+-                    std::vector<dvs_msgs::Event>* ptr,
++                    std::vector<cmax_port::Event>* ptr,
+                     std::vector<cv::Point3d>* precomputed_bearing_vectors_ptr);
+ 
+     // Set the pointer to the frontend
+     void setFrontend(AngVelEstimator* ptr) { ang_vel_estimator_ = ptr; }
+ 
+     // Feed frontend angular velocity and the corresponding events into the backend
+-    void pushAngVel(const ros::Time& ts, const Eigen::Vector3d& ang_vel);
++    void pushAngVel(const cmax_port::Time& ts, const Eigen::Vector3d& ang_vel);
+ 
+     // Main function of the backend
+     void Run();
++    uint64_t windows_processed() const { return windows_processed_; }
+ 
+     // Get the number of control poses of the trajectory
+     int getNumControlPoses() const { return traj_->size(); }
+@@ -90,25 +88,24 @@
+     cv::Mat evoluting_sharp_iwe_;
+ 
+     // Event subset look-up table
+-    std::map<ros::Time,int> ev_subset_ts_map_;
++    std::map<cmax_port::Time,int> ev_subset_ts_map_;
+ 
+ private:
+     // Node handle used to subscribe to ROS topics
+-    ros::NodeHandle* nh_;
++    rclcpp::Node* nh_;
+ 
+     // Publishers
+-    image_transport::ImageTransport it_;
+-    image_transport::Publisher image_pub_;
++    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr image_pub_;
+ 
+     // Timestamp for the display IWE
+-    ros::Time ts_event_image_;
++    cmax_port::Time ts_event_image_;
+ 
+     // Sliding window
+     void slideWindow();
+     // Begin/end time of current window
+-    ros::Time t_win_beg_, t_win_end_;
+-    ros::Time t_ang_vel_beg_, t_ang_vel_end_;
+-    ros::Duration win_size_, win_stride_;
++    cmax_port::Time t_win_beg_, t_win_end_;
++    cmax_port::Time t_ang_vel_beg_, t_ang_vel_end_;
++    cmax_port::Duration win_size_, win_stride_;
+     // Index of the first control pose within the current timw window
+     int idx_cp_traj_beg_;
+     // Index of the first control pose involved in the optimization
+@@ -126,16 +123,24 @@
+ 
+     // Check if all frontend poses are collected for the current time window
+     bool isReadyFrontendPoses();
++    void publishTrajectory();
++    uint64_t windows_processed_ = 0;
++    rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pose_pub_;
++    rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_pub_;
++    nav_msgs::msg::Path path_;
++    std::unique_ptr<tf2_ros::TransformBroadcaster> tf_pub_;
++    std::ofstream trajectory_file_;
++    std::string map_file_;
+ 
+     // Events
+-    std::vector<dvs_msgs::Event> event_subset_;
+-    void getEventSubset(const ros::Time& t_beg, const ros::Time& t_end);
++    std::vector<cmax_port::Event> event_subset_;
++    void getEventSubset(const cmax_port::Time& t_beg, const cmax_port::Time& t_end);
+ 
+     // Front-end angular velocity & integration
+     PoseEntry pose_latest_;
+     AngVelMap frontend_ang_vel_;
+     AngVelEntry ang_vel_prev_;
+-    AngVelMap getAngVelSubset(const ros::Time& t_beg, const ros::Time& t_end);
++    AngVelMap getAngVelSubset(const cmax_port::Time& t_beg, const cmax_port::Time& t_end);
+     // Integrate frontend angular velocities into absolute poses
+     PoseMap integrateAngVel(const PoseEntry& pose_init, const AngVelMap& ang_vel_subset);
+ 
+@@ -144,13 +149,13 @@
+     void setupProblemAndOptimize_gsl();
+ 
+     // Pointer to the total event vector (stored in the frontend)
+-    std::vector<dvs_msgs::Event>* events_ptr_;
++    std::vector<cmax_port::Event>* events_ptr_;
+ 
+     // Event warper: compute IWE and deriv
+-    EventWarper* event_warper_;
++    EventWarper* event_warper_ = nullptr;
+ 
+     // Trajectory
+-    Trajectory* traj_;
++    Trajectory* traj_ = nullptr;
+ 
+     // Pointer to the angular velocity estimator (front-end)
+     AngVelEstimator* ang_vel_estimator_;
+--- upstream/include/backend/trajectory.h
++++ port/include/backend/trajectory.h
+@@ -1,3 +1,4 @@
++#include "cmax_port/types.hpp"
+ #pragma once
+ 
+ #include <map>
+@@ -5,20 +6,19 @@
+ #include <assert.h>
+ 
+ #include <opencv2/core.hpp>
+-#include <ros/ros.h>
+ #include <Eigen/Core>
+ 
+ #include "basalt/spline/so3_spline.h"
+ 
+-typedef std::pair<ros::Time, Sophus::SO3d> PoseEntry;
+-typedef std::map<ros::Time, Sophus::SO3d> PoseMap;
++typedef std::pair<cmax_port::Time, Sophus::SO3d> PoseEntry;
++typedef std::map<cmax_port::Time, Sophus::SO3d> PoseMap;
+ typedef std::vector<PoseEntry> PoseArray;
+ 
+ namespace cmax_slam {
+ 
+ struct TrajectorySettings{
+-    ros::Time t_beg;
+-    ros::Time t_end;
++    cmax_port::Time t_beg;
++    cmax_port::Time t_end;
+     double dt_knots;
+ };
+ 
+@@ -46,7 +46,7 @@
+     virtual void pushbackCtrlPoses(const std::vector<Sophus::SO3d> &cps) = 0;
+ 
+     // Evaluate trajectory at some timestamp
+-    virtual Sophus::SO3d evaluate(const ros::Time& t, int* idx_beg = nullptr,
++    virtual Sophus::SO3d evaluate(const cmax_port::Time& t, int* idx_beg = nullptr,
+                                   cv::Mat* jacobian = nullptr) = 0;
+ 
+     virtual void incrementalUpdate(const std::vector<Eigen::Vector3d>& drotv, const int& idx_beg) = 0;
+@@ -57,8 +57,8 @@
+ 
+     // Generate control poses with new poses and time interval (mostly used for trajectory extension)
+     virtual std::vector<Sophus::SO3d> generateCtrlPoses(PoseMap& poses,
+-                                                        const ros::Time& t_beg,
+-                                                        const ros::Time& t_end) = 0;
++                                                        const cmax_port::Time& t_beg,
++                                                        const cmax_port::Time& t_end) = 0;
+ 
+ protected:
+     // Trajectory configuration
+@@ -68,8 +68,8 @@
+     /* Spline initializatoin */
+     // Use given poses to compute initial control poses for the trajectory
+     virtual void initializeCtrlPoses(PoseMap& poses,
+-                                     const ros::Time& t_beg,
+-                                     const ros::Time& t_end) = 0;
++                                     const cmax_port::Time& t_beg,
++                                     const cmax_port::Time& t_end) = 0;
+     // Fit control poses with the given poses (mostly called by the above functions)
+     virtual std::vector<Sophus::SO3d> fitCtrlPoses(PoseMap& poses, const double t_beg, const int num_cps) = 0;
+ 
+@@ -106,7 +106,7 @@
+     void pushbackCtrlPoses(const std::vector<Sophus::SO3d> &cps) override;
+ 
+     // Query pose at given timestamp
+-    Sophus::SO3d evaluate(const ros::Time &t, int* idx_beg = nullptr,
++    Sophus::SO3d evaluate(const cmax_port::Time &t, int* idx_beg = nullptr,
+                           cv::Mat *jacobian = nullptr) override; // jaocbian: 3X6
+ 
+     // Update the trajectory by incremental rotation (delta R)
+@@ -119,14 +119,14 @@
+ 
+     // Generate control poses with new poses and time interval (mostly used for trajectory extension)
+     virtual std::vector<Sophus::SO3d> generateCtrlPoses(PoseMap& poses,
+-                                                        const ros::Time& t_beg,
+-                                                        const ros::Time& t_end) override;
++                                                        const cmax_port::Time& t_beg,
++                                                        const cmax_port::Time& t_end) override;
+ 
+ protected:
+     // Initialize control poses for this trajectory, with the poses on the trajectory
+     void initializeCtrlPoses(PoseMap& poses,
+-                             const ros::Time& t_beg,
+-                             const ros::Time& t_end) override;
++                             const cmax_port::Time& t_beg,
++                             const cmax_port::Time& t_end) override;
+ 
+     // Fit control poses with the given poses (mostly called by the above functions)
+     virtual std::vector<Sophus::SO3d> fitCtrlPoses(PoseMap& poses, const double t_beg, const int num_cps) override;
+@@ -164,7 +164,7 @@
+     void pushbackCtrlPoses(const std::vector<Sophus::SO3d> &cps) override;
+ 
+     // Query pose at given timestamp
+-    Sophus::SO3d evaluate(const ros::Time &t, int* idx_beg = nullptr,
++    Sophus::SO3d evaluate(const cmax_port::Time &t, int* idx_beg = nullptr,
+                           cv::Mat *jacobian = nullptr) override; // jacobian: 3X12
+ 
+     // Update the trajectory by incremental rotation (delta R)
+@@ -177,14 +177,14 @@
+ 
+     // Generate control poses with new poses and time interval (mostly used for trajectory extension)
+     virtual std::vector<Sophus::SO3d> generateCtrlPoses(PoseMap& poses,
+-                                                        const ros::Time& t_beg,
+-                                                        const ros::Time& t_end) override;
++                                                        const cmax_port::Time& t_beg,
++                                                        const cmax_port::Time& t_end) override;
+ 
+ protected:
+     // Initialize control poses for this trajectory, with the poses on the trajectory
+     void initializeCtrlPoses(PoseMap& poses,
+-                             const ros::Time& t_beg,
+-                             const ros::Time& t_end) override;
++                             const cmax_port::Time& t_beg,
++                             const cmax_port::Time& t_end) override;
+     // Fit control poses with the given poses (mostly called by the above functions)
+     virtual std::vector<Sophus::SO3d> fitCtrlPoses(PoseMap& poses, const double t_beg, const int num_cps) override;
+ 
+--- upstream/include/cmax_slam.h
++++ port/include/cmax_slam.h
+@@ -1,3 +1,4 @@
++#include "cmax_port/types.hpp"
+ #pragma once
+ 
+ #include <thread>
+@@ -6,10 +7,6 @@
+ #include "frontend/ang_vel_estimator.h"
+ #include "backend/pose_graph_optimizer.h"
+ 
+-#include <sensor_msgs/CameraInfo.h>
+-#include <sensor_msgs/Image.h>
+-#include <dvs_msgs/Event.h>
+-#include <dvs_msgs/EventArray.h>
+ 
+ namespace cmax_slam {
+ 
+@@ -17,7 +14,7 @@
+ {
+ public:
+     // Constructor
+-    CMaxSLAM(ros::NodeHandle& nh);
++    CMaxSLAM(rclcpp::Node& nh);
+     // Deconstructor
+     ~CMaxSLAM();
+ 
+@@ -25,16 +22,24 @@
+     std::vector<cv::Point3d> precomputed_bearing_vectors; // Share with the back-end
+     image_geometry::PinholeCameraModel cam;
+ 
++public:
++    uint64_t windows_processed() const { return pose_graph_optimizer_->windows_processed(); }
++    uint64_t events_received() const { return events_received_; }
+ private:
+     // Node handle used to subscribe to ROS topics
+-    ros::NodeHandle nh_;
++    rclcpp::Node& nh_;
+     // Private node handle for reading parameters
+-    ros::NodeHandle pnh_;
++
+ 
+     // Subscribers and callbacks
+-    ros::Subscriber event_sub_, camera_info_sub_;
+-    void eventsCallback(const dvs_msgs::EventArray::ConstPtr& msg);
+-    void cameraInfoCallback(const sensor_msgs::CameraInfo::ConstPtr& camera_info);
++    rclcpp::Subscription<cmax_slam_ros2::msg::EventArray>::SharedPtr event_sub_;
++    rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_sub_;
++    int64_t last_event_ns_ = -1;
++    uint64_t events_received_ = 0;
++public:
++    void eventsCallback(const cmax_slam_ros2::msg::EventArray::ConstSharedPtr& msg);
++    void cameraInfoCallback(const sensor_msgs::msg::CameraInfo::ConstSharedPtr& camera_info);
++private:
+     bool got_camera_info_;
+ 
+     // Precompute bearing vectors and share with the front-end and the back-end
+@@ -48,6 +53,6 @@
+     AngVelEstimator* ang_vel_estimator_;       // Front-end
+     PoseGraphOptimizer* pose_graph_optimizer_; // Back-end
+ 
+-    std::thread* pose_graph_optim_; // Thread for the back-end
++    // Backend windows run synchronously after each frontend event.
+ };
+ }
+--- upstream/include/frontend/ang_vel_estimator.h
++++ port/include/frontend/ang_vel_estimator.h
+@@ -1,3 +1,4 @@
++#include "cmax_port/types.hpp"
+ #pragma once
+ 
+ #include "backend/pose_graph_optimizer.h"
+@@ -6,17 +7,10 @@
+ #include <opencv2/core.hpp>
+ #include <Eigen/Core>
+ 
+-#include <ros/ros.h>
+-#include <cv_bridge/cv_bridge.h>
+-#include <image_transport/image_transport.h>
+-#include <image_geometry/pinhole_camera_model.h>
++#include <cv_bridge/cv_bridge.hpp>
++#include <image_geometry/pinhole_camera_model.hpp>
+ 
+-#include <sensor_msgs/CameraInfo.h>
+-#include <sensor_msgs/Image.h>
+-#include <sensor_msgs/Imu.h>
+ 
+-#include <dvs_msgs/Event.h>
+-#include <dvs_msgs/EventArray.h>
+ 
+ #include <deque>
+ #include <vector>
+@@ -30,7 +24,7 @@
+ class AngVelEstimator {
+ public:
+     // Constructor
+-    AngVelEstimator(ros::NodeHandle* nh);
++    AngVelEstimator(rclcpp::Node* nh);
+ 
+     // Deconstructor
+     ~AngVelEstimator();
+@@ -44,7 +38,7 @@
+     void setBackend(PoseGraphOptimizer* ptr) { pose_graph_optimizer_ = ptr; }
+ 
+     // Push the event to the frontend
+-    void pushEvent(const dvs_msgs::Event& event);
++    void pushEvent(const cmax_port::Event& event);
+ 
+     // Compute IWE for CMax optimization (with Gaussian blurring)
+     void computeImageOfWarpedEvents(
+@@ -61,20 +55,19 @@
+     AngVelEstParams params;
+ 
+     // The vector to save all events that are going to be processed
+-    std::vector<dvs_msgs::Event> events_;
++    std::vector<cmax_port::Event> events_;
+ 
+     // Delete old (processed) events (called by the backend)
+     void deleteOldEvents(const int idx_backend);
+ 
+ private:
+     // Pointer to the ROS node, for publishing
+-    ros::NodeHandle* nh_;
++    rclcpp::Node* nh_;
+ 
+     // Publishers
+-    image_transport::ImageTransport it_;
+-    image_transport::Publisher img_pub_;
++    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr img_pub_;
+     cv_bridge::CvImage cv_event_image_;
+-    ros::Publisher ang_vel_pub_;
++    rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr ang_vel_pub_;
+ 
+     // Publish results
+     void publishAngularVelocity();
+@@ -88,17 +81,17 @@
+     void processEventPacket();
+ 
+     // Slide window
+-    std::vector<dvs_msgs::Event> event_subset_; // Event subset for the current window
++    std::vector<cmax_port::Event> event_subset_; // Event subset for the current window
+     std::deque<std::pair<int, int>> event_subsets_info_;
+     int num_event_total_; // Current total event number stored in the frontend
+     int ev_beg_idx_, ev_end_idx_;
+     bool sliding_window_initialized_; // Set sliding window when
+-    ros::Duration dt_av_; // Frequency of output angular velocity
++    cmax_port::Duration dt_av_; // Frequency of output angular velocity
+     int num_ev_half_packet_; // num_events_per_packet/2
+ 
+     // States of the front-end estimator
+-    ros::Time time_packet_; // Timestamp of the current event packet (angular velocity)
+-    ros::Time time_get_subset_; // Timestamp of getting the next subset
++    cmax_port::Time time_packet_; // Timestamp of the current event packet (angular velocity)
++    cmax_port::Time time_get_subset_; // Timestamp of getting the next subset
+     cv::Point3d ang_vel_; // Angular velocity
+ 
+     // Function to warp a small event batch
+@@ -106,7 +99,7 @@
+             const cv::Point3d& ang_vel,
+             const int& event_batch_begin_idx,
+             const int& event_batch_end_idx,
+-            const ros::Time time_ref,
++            const cmax_port::Time time_ref,
+             cv::Mat* image_warped,
+             cv::Mat* image_warped_deriv);
+ 
+--- upstream/include/frontend/local_focus_funcs.h
++++ port/include/frontend/local_focus_funcs.h
+@@ -1,3 +1,4 @@
++#include "cmax_port/types.hpp"
+ #pragma once
+ 
+ #include <opencv2/core.hpp>
+--- upstream/include/utils/image_geom_util.h
++++ port/include/utils/image_geom_util.h
+@@ -1,3 +1,4 @@
++#include "cmax_port/types.hpp"
+ #pragma once
+ 
+ #include <opencv2/core.hpp>
+--- upstream/include/utils/image_utils.h
++++ port/include/utils/image_utils.h
+@@ -1,3 +1,4 @@
++#include "cmax_port/types.hpp"
+ #pragma once
+ 
+ #include <opencv2/core.hpp>
+--- upstream/include/utils/parameters.h
++++ port/include/utils/parameters.h
+@@ -1,3 +1,4 @@
++#include "cmax_port/types.hpp"
+ #pragma once
+ 
+ #include <string>

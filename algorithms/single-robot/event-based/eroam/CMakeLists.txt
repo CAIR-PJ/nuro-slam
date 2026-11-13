@@ -1,0 +1,32 @@
+cmake_minimum_required(VERSION 3.16)
+project(eroam_ros2)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release)
+endif()
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(Eigen3 REQUIRED)
+find_package(PCL REQUIRED COMPONENTS common filters io)
+find_package(OpenCV REQUIRED COMPONENTS core imgproc imgcodecs)
+find_package(TBB REQUIRED)
+find_package(glog CONFIG REQUIRED)
+find_package(gflags CONFIG REQUIRED)
+find_package(yaml-cpp CONFIG REQUIRED)
+include_directories("/opt/homebrew/include")
+add_executable(eroam_node src/eroam_run_ros2.cpp src/timer.cc thirdparty/ikd-Tree/ikd_Tree.cpp)
+target_include_directories(eroam_node PRIVATE include src thirdparty thirdparty/sophus thirdparty/ikd-Tree ${PCL_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS})
+target_link_libraries(eroam_node Eigen3::Eigen ${PCL_LIBRARIES} ${OpenCV_LIBS} TBB::tbb glog::glog gflags yaml-cpp::yaml-cpp)
+target_link_libraries(eroam_node
+  rclcpp::rclcpp
+  ${sensor_msgs_TARGETS}
+  ${geometry_msgs_TARGETS}
+  ${nav_msgs_TARGETS}
+)
+install(TARGETS eroam_node DESTINATION lib/${PROJECT_NAME})
+install(DIRECTORY launch config DESTINATION share/${PROJECT_NAME})
+ament_package()

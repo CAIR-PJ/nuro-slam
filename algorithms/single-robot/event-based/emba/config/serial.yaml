@@ -1,0 +1,22 @@
+/**:
+  ros__parameters:
+    start_ns: -1
+    stop_ns: -1
+    trajectory_offset_ns: 0
+    seed_step_ns: 0
+    random_seed: 1
+    diagnostics: false
+    pano_height: 128
+    dt_knots: 0.05
+    C_th: 0.45
+    use_CG: false
+    use_IRLS: false
+    cost_type: quadratic
+    eta: 0.1
+    thres_valid_pixel: 5
+    alpha: 5.0
+    damping_factor: 1.0
+    event_sampling_rate: 1
+    max_num_iter: 50
+    tol_fun: 0.001
+    num_times_tol_fun_sat: 2

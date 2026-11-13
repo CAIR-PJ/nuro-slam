@@ -1,0 +1,50 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+Visualization Manager:
+  Class: ""
+  Global Options:
+    Fixed Frame: cmax_world
+    Frame Rate: 30
+  Displays:
+    - Class: rviz_default_plugins/Pose
+      Name: Camera orientation (zero translation)
+      Enabled: true
+      Shape: Axes
+      Topic:
+        Value: /cmax/pose
+        Reliability Policy: Reliable
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Depth: 1
+    - Class: rviz_default_plugins/TF
+      Name: Rotation axes
+      Enabled: true
+      Frame Timeout: 10000000000
+    - Class: rviz_default_plugins/Image
+      Name: Panoramic map
+      Enabled: true
+      Topic:
+        Value: /cmax/pano_map
+        Reliability Policy: Reliable
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Depth: 1
+    - Class: rviz_default_plugins/Image
+      Name: Local motion compensation
+      Enabled: true
+      Topic:
+        Value: /cmax/local_iwe
+        Reliability Policy: Reliable
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Depth: 1
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Distance: 3
+      Pitch: 0.4
+      Yaw: 0.8
+Window Geometry:
+  Width: 1200
+  Height: 800
