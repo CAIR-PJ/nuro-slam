@@ -65,3 +65,21 @@ This code leverages the following repository for computing the derivative of Lie
 * [ES-PTAM: Event-based Stereo Parallel Tracking and Mapping](https://github.com/tub-rip/ES-PTAM)
 * [Survey paper](http://rpg.ifi.uzh.ch/docs/EventVisionSurvey.pdf)
 * [List of Resources](https://github.com/uzh-rpg/event-based_vision_resources)
+
+## Nuro-SLAM Integration Validation
+
+**Environment:** macOS Apple Silicon ARM64, native ROS 2 Jazzy.
+
+- Native compilation: completed.
+- CTest checks: 4 passed out of 4.
+- CLI help check: passed.
+- Timing check: passed.
+- Camera check: passed.
+- Core warper check: passed.
+- Full-dataset optimization: not yet verified.
+- Numerical parity with upstream: not established.
+- Ground-truth accuracy: not established.
+
+This section records Nuro-SLAM integration results.
+The original algorithm description, authorship, and
+citation information above remain unchanged.

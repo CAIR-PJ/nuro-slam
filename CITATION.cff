@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "If you use the Nuro-SLAM integration platform, please cite this repository and the relevant original algorithm publications."
+type: software
+title: "Nuro-SLAM: Neuromorphic SLAM Research Platform"
+authors:
+# Project creator and maintainer: Pramod
+  - name: Pramod
+    affiliation: Indian Institute of Technology Mandi
+abstract: >-
+  Nuro-SLAM is an experimental research platform integrating
+  event-based SLAM implementations and supporting research
+  on neuromorphic computing, reproducible benchmarking,
+  and collaborative multi-robot mapping.
+keywords:
+  - neuromorphic SLAM
+  - event-based vision
+  - simultaneous localization and mapping
+  - multi-robot systems
+  - robotics
+  - research software
+identifiers: []

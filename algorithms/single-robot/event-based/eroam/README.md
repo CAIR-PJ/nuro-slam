@@ -56,3 +56,23 @@ ros2 launch eroam_ros2 offline.launch.py \
 ## Original source provenance
 
 Original repository: https://github.com/wlxing1901/eroam ; local checkout commit reported by user: `01d48b0`. The ZIP did not contain `.git`, so the source tree's exact commit cannot be cryptographically verified from the archive alone. Keep upstream license and attribution intact; inspect upstream licensing before redistribution.
+
+## Nuro-SLAM Integration Validation
+
+**Environment:** macOS Apple Silicon ARM64, native ROS 2 Jazzy.
+
+- Native compilation: completed.
+- Offline execution: completed using 50,000 Playroom events.
+- Packet size: 500 events.
+- Packets processed: 100.
+- Spherical ICP processing: executed.
+- TUM trajectory: generated.
+- Panorama: not generated in the bounded test.
+- Numerical parity and ground-truth accuracy: not established.
+
+The panorama writer reported a non-positive loop width.
+The cause remains under investigation.
+
+The earlier source-migration status above reflects the
+original imported documentation and is superseded by this
+integration-validation section.

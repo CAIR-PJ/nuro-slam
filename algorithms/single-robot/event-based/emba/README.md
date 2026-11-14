@@ -238,3 +238,18 @@ Required parity work: match events/order/subsampling, calibration, seed trajecto
 **Not executed here:** full core/CLI build, full numerical-invariant test executable, ROS 2 wrapper/launch/RViz, Apple Silicon linking, installed Eigen 5/OpenCV 5 compatibility, actual Playroom/Victory Column runs, energy/runtime comparisons, or upstream numerical parity. The host lacks the required ROS/OpenCV/FFTW development environment. No successful full build or scientific reproduction is claimed.
 
 To check the OpenMP issue on your Mac after building, inspect the actual executable and loaded libraries with `otool -L` and a diagnostic run using `DYLD_PRINT_LIBRARIES=1`. This port introduces no second runtime itself, but transitive Homebrew library loading still needs verification. `KMP_DUPLICATE_LIB_OK` is not used, and a thread-count request alone is not evidence that the process uses one worker.
+
+## Nuro-SLAM Integration Validation
+
+**Environment:** macOS Apple Silicon ARM64, native ROS 2 Jazzy.
+
+- Native C++ compilation: completed.
+- ROS 2 wrapper compilation: completed.
+- CTest execution: passed.
+- Full-dataset numerical optimization: not yet verified.
+- Numerical parity with upstream: not established.
+- Ground-truth accuracy: not established.
+
+The earlier unverified-build statements above describe
+the imported source-port status and are superseded by
+this integration-validation section.

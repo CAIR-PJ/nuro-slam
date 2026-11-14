@@ -220,3 +220,18 @@ For a scientific validation, preserve the bag/conversion/build manifests, obtain
 | Gazebo is not opening | Expected: recorded ECRot replay does not launch Gazebo |
 
 Upstream: https://github.com/tub-rip/cmax_slam ; dataset: https://github.com/tub-rip/ECRot . Cite the original authors and identify this experimental port and its changes when reporting results.
+
+## Nuro-SLAM Integration Validation
+
+**Environment:** macOS Apple Silicon ARM64, native ROS 2 Jazzy.
+
+- Native compilation: completed.
+- Offline execution: completed using the converted ECRot Playroom event stream.
+- Event count: approximately 3.62 million.
+- Trajectory output: generated.
+- Independent ground-truth accuracy: not established.
+- Numerical parity with upstream: not established.
+
+The original build and extraction instructions above describe
+the imported source-port workflow. For repository integration,
+use the paths under `algorithms/single-robot/event-based/cmax/`.
