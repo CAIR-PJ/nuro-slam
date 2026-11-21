@@ -1,0 +1,204 @@
+{
+  "schema": 1,
+  "jobs": [
+    {
+      "id": "cmax_slam_playroom_r1",
+      "algorithm": "CMax-SLAM",
+      "dataset": "Playroom",
+      "repetition": 1,
+      "argv": null,
+      "cwd": "/Users/pramod/neuromorphic_slam_ws/ports/cmax_ros2_port",
+      "env": {},
+      "output_trajectory": "trajectory.tum",
+      "notes": "Set argv to verified native invocation; use {dataset}, {output_dir}, {trajectory} placeholders. EMBA must identify frontend."
+    },
+    {
+      "id": "cmax_slam_playroom_r2",
+      "algorithm": "CMax-SLAM",
+      "dataset": "Playroom",
+      "repetition": 2,
+      "argv": null,
+      "cwd": "/Users/pramod/neuromorphic_slam_ws/ports/cmax_ros2_port",
+      "env": {},
+      "output_trajectory": "trajectory.tum",
+      "notes": "Set argv to verified native invocation; use {dataset}, {output_dir}, {trajectory} placeholders. EMBA must identify frontend."
+    },
+    {
+      "id": "cmax_slam_playroom_r3",
+      "algorithm": "CMax-SLAM",
+      "dataset": "Playroom",
+      "repetition": 3,
+      "argv": null,
+      "cwd": "/Users/pramod/neuromorphic_slam_ws/ports/cmax_ros2_port",
+      "env": {},
+      "output_trajectory": "trajectory.tum",
+      "notes": "Set argv to verified native invocation; use {dataset}, {output_dir}, {trajectory} placeholders. EMBA must identify frontend."
+    },
+    {
+      "id": "cmax_slam_victory_column_r1",
+      "algorithm": "CMax-SLAM",
+      "dataset": "Victory_Column",
+      "repetition": 1,
+      "argv": null,
+      "cwd": "/Users/pramod/neuromorphic_slam_ws/ports/cmax_ros2_port",
+      "env": {},
+      "output_trajectory": "trajectory.tum",
+      "notes": "Set argv to verified native invocation; use {dataset}, {output_dir}, {trajectory} placeholders. EMBA must identify frontend."
+    },
+    {
+      "id": "cmax_slam_victory_column_r2",
+      "algorithm": "CMax-SLAM",
+      "dataset": "Victory_Column",
+      "repetition": 2,
+      "argv": null,
+      "cwd": "/Users/pramod/neuromorphic_slam_ws/ports/cmax_ros2_port",
+      "env": {},
+      "output_trajectory": "trajectory.tum",
+      "notes": "Set argv to verified native invocation; use {dataset}, {output_dir}, {trajectory} placeholders. EMBA must identify frontend."
+    },
+    {
+      "id": "cmax_slam_victory_column_r3",
+      "algorithm": "CMax-SLAM",
+      "dataset": "Victory_Column",
+      "repetition": 3,
+      "argv": null,
+      "cwd": "/Users/pramod/neuromorphic_slam_ws/ports/cmax_ros2_port",
+      "env": {},
+      "output_trajectory": "trajectory.tum",
+      "notes": "Set argv to verified native invocation; use {dataset}, {output_dir}, {trajectory} placeholders. EMBA must identify frontend."
+    },
+    {
+      "id": "eroam_playroom_r1",
+      "algorithm": "EROAM",
+      "dataset": "Playroom",
+      "repetition": 1,
+      "argv": null,
+      "cwd": "/Users/pramod/neuromorphic_slam_ws/ports/eroam_ros2_port",
+      "env": {},
+      "output_trajectory": "trajectory.tum",
+      "notes": "Set argv to verified native invocation; use {dataset}, {output_dir}, {trajectory} placeholders. EMBA must identify frontend."
+    },
+    {
+      "id": "eroam_playroom_r2",
+      "algorithm": "EROAM",
+      "dataset": "Playroom",
+      "repetition": 2,
+      "argv": null,
+      "cwd": "/Users/pramod/neuromorphic_slam_ws/ports/eroam_ros2_port",
+      "env": {},
+      "output_trajectory": "trajectory.tum",
+      "notes": "Set argv to verified native invocation; use {dataset}, {output_dir}, {trajectory} placeholders. EMBA must identify frontend."
+    },
+    {
+      "id": "eroam_playroom_r3",
+      "algorithm": "EROAM",
+      "dataset": "Playroom",
+      "repetition": 3,
+      "argv": null,
+      "cwd": "/Users/pramod/neuromorphic_slam_ws/ports/eroam_ros2_port",
+      "env": {},
+      "output_trajectory": "trajectory.tum",
+      "notes": "Set argv to verified native invocation; use {dataset}, {output_dir}, {trajectory} placeholders. EMBA must identify frontend."
+    },
+    {
+      "id": "eroam_victory_column_r1",
+      "algorithm": "EROAM",
+      "dataset": "Victory_Column",
+      "repetition": 1,
+      "argv": null,
+      "cwd": "/Users/pramod/neuromorphic_slam_ws/ports/eroam_ros2_port",
+      "env": {},
+      "output_trajectory": "trajectory.tum",
+      "notes": "Set argv to verified native invocation; use {dataset}, {output_dir}, {trajectory} placeholders. EMBA must identify frontend."
+    },
+    {
+      "id": "eroam_victory_column_r2",
+      "algorithm": "EROAM",
+      "dataset": "Victory_Column",
+      "repetition": 2,
+      "argv": null,
+      "cwd": "/Users/pramod/neuromorphic_slam_ws/ports/eroam_ros2_port",
+      "env": {},
+      "output_trajectory": "trajectory.tum",
+      "notes": "Set argv to verified native invocation; use {dataset}, {output_dir}, {trajectory} placeholders. EMBA must identify frontend."
+    },
+    {
+      "id": "eroam_victory_column_r3",
+      "algorithm": "EROAM",
+      "dataset": "Victory_Column",
+      "repetition": 3,
+      "argv": null,
+      "cwd": "/Users/pramod/neuromorphic_slam_ws/ports/eroam_ros2_port",
+      "env": {},
+      "output_trajectory": "trajectory.tum",
+      "notes": "Set argv to verified native invocation; use {dataset}, {output_dir}, {trajectory} placeholders. EMBA must identify frontend."
+    },
+    {
+      "id": "emba_playroom_r1",
+      "algorithm": "EMBA",
+      "dataset": "Playroom",
+      "repetition": 1,
+      "argv": null,
+      "cwd": "/Users/pramod/neuromorphic_slam_ws/ports/emba_ros2_port",
+      "env": {},
+      "output_trajectory": "trajectory.tum",
+      "notes": "Set argv to verified native invocation; use {dataset}, {output_dir}, {trajectory} placeholders. EMBA must identify frontend."
+    },
+    {
+      "id": "emba_playroom_r2",
+      "algorithm": "EMBA",
+      "dataset": "Playroom",
+      "repetition": 2,
+      "argv": null,
+      "cwd": "/Users/pramod/neuromorphic_slam_ws/ports/emba_ros2_port",
+      "env": {},
+      "output_trajectory": "trajectory.tum",
+      "notes": "Set argv to verified native invocation; use {dataset}, {output_dir}, {trajectory} placeholders. EMBA must identify frontend."
+    },
+    {
+      "id": "emba_playroom_r3",
+      "algorithm": "EMBA",
+      "dataset": "Playroom",
+      "repetition": 3,
+      "argv": null,
+      "cwd": "/Users/pramod/neuromorphic_slam_ws/ports/emba_ros2_port",
+      "env": {},
+      "output_trajectory": "trajectory.tum",
+      "notes": "Set argv to verified native invocation; use {dataset}, {output_dir}, {trajectory} placeholders. EMBA must identify frontend."
+    },
+    {
+      "id": "emba_victory_column_r1",
+      "algorithm": "EMBA",
+      "dataset": "Victory_Column",
+      "repetition": 1,
+      "argv": null,
+      "cwd": "/Users/pramod/neuromorphic_slam_ws/ports/emba_ros2_port",
+      "env": {},
+      "output_trajectory": "trajectory.tum",
+      "notes": "Set argv to verified native invocation; use {dataset}, {output_dir}, {trajectory} placeholders. EMBA must identify frontend."
+    },
+    {
+      "id": "emba_victory_column_r2",
+      "algorithm": "EMBA",
+      "dataset": "Victory_Column",
+      "repetition": 2,
+      "argv": null,
+      "cwd": "/Users/pramod/neuromorphic_slam_ws/ports/emba_ros2_port",
+      "env": {},
+      "output_trajectory": "trajectory.tum",
+      "notes": "Set argv to verified native invocation; use {dataset}, {output_dir}, {trajectory} placeholders. EMBA must identify frontend."
+    },
+    {
+      "id": "emba_victory_column_r3",
+      "algorithm": "EMBA",
+      "dataset": "Victory_Column",
+      "repetition": 3,
+      "argv": null,
+      "cwd": "/Users/pramod/neuromorphic_slam_ws/ports/emba_ros2_port",
+      "env": {},
+      "output_trajectory": "trajectory.tum",
+      "notes": "Set argv to verified native invocation; use {dataset}, {output_dir}, {trajectory} placeholders. EMBA must identify frontend."
+    }
+  ],
+  "instructions": "Fill argv arrays with exact verified commands. Example argv: [\"/absolute/path/to/binary\", \"--input\", \"{dataset}\", \"--output\", \"{trajectory}\"]. Placeholders are substituted literally, no shell. Set EMBA frontend provenance. Do not change dataset paths."
+}

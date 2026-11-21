@@ -98,7 +98,7 @@ EMBA::EMBA(const native::Options& options)
     cv::medianBlur(gx32,gx32,3);cv::medianBlur(gy32,gy32,3);
     gx32.convertTo(Gx_,CV_64FC1);gy32.convertTo(Gy_,CV_64FC1);
     native::write_run_metadata(options,origin_ns_,end,events_.size());
-    model_ptr_=new LEGM(camera_info_msg,BA_config.C_th,BA_config.pano_width,BA_config.pano_height);
+    model_ptr_=new LEGM(camera_info_msg,BA_config.C_th,BA_config.pano_width,BA_config.pano_height,options.model_mode=="periodic");
     Run();
     native::write_gradient(result_dir_+"/Gx.bin",Gx_);
     native::write_gradient(result_dir_+"/Gy.bin",Gy_);

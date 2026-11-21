@@ -1,3 +1,6 @@
+#include <limits>
+#include <cmath>
+#include <algorithm>
 #include "epba/model.h"
 #include "utils/so3_funcs.h"
 
@@ -82,12 +85,39 @@ bool Model::solveNormalEqCG(const MatXd &A11, const MatXd &A12, const SpMat &A22
 
     /* Solve using the built-in Eigen solver */
     Eigen::ConjugateGradient<SpMat, Eigen::Lower|Eigen::Upper> cg;
-    const int max_iter = 100;
+    const int max_iter = 500;
     const double tol = 1e-6;
     cg.setMaxIterations(max_iter);
     cg.setTolerance(tol);
     cg.compute(A);
+
+    if (cg.info() != Eigen::Success) {
+        std::cerr << "[EPBA_CG] setup_failed" << std::endl;
+        return false;
+    }
+
     VecXd x = cg.solve(b);
+
+    const double relative_residual =
+        x.allFinite()
+            ? (A * x - b).norm() / std::max(b.norm(), 1e-30)
+            : std::numeric_limits<double>::infinity();
+
+    const bool converged =
+        cg.info() == Eigen::Success &&
+        x.allFinite() &&
+        std::isfinite(relative_residual) &&
+        relative_residual <= tol;
+
+    std::cout << "[EPBA_CG]"
+              << " iterations=" << cg.iterations()
+              << " estimated_error=" << cg.error()
+              << " relative_residual=" << relative_residual
+              << " converged=" << converged
+              << std::endl;
+
+    if (!converged)
+        return false;
 
     // Split x into x1 and x2
     x1 = x.head(dim_poses);

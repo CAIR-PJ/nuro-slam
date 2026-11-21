@@ -44,7 +44,7 @@ inline void write_run_metadata(const Options& o,int64_t origin,int64_t end,size_
   s<<std::setprecision(17)<<"upstream_commit=11225df786a65c059f113a903349c1d3f8f68829\n"
     <<"origin_ns="<<origin<<"\nstop_ns="<<end<<"\nselected_events="<<count<<"\n"
     <<"events="<<o.events<<"\ncalibration="<<o.calibration<<"\ntrajectory="<<o.trajectory<<"\n"
-    <<"seed_step_ns="<<o.seed_step_ns<<"\ntrajectory_offset_ns="<<o.trajectory_offset_ns<<"\nrandom_seed="<<o.random_seed<<"\n"
+    <<"model_mode="<<o.model_mode<<"\nseed_step_ns="<<o.seed_step_ns<<"\ntrajectory_offset_ns="<<o.trajectory_offset_ns<<"\nrandom_seed="<<o.random_seed<<"\n"
     <<"use_CG="<<o.ba.use_CG<<"\nuse_IRLS="<<o.ba.use_IRLS<<"\ncost_type="<<o.ba.cost_type<<"\neta="<<o.ba.eta<<"\nC_th="<<o.ba.C_th
     <<"\npano_height="<<o.ba.pano_height<<"\ndt_knots="<<o.ba.dt_knots<<"\nevent_sampling_rate="<<o.ba.event_sampling_rate
     <<"\nalpha="<<o.ba.alpha<<"\ndamping_factor="<<o.ba.damping_factor<<"\nthres_valid_pixel="<<o.ba.thres_valid_pixel

@@ -17,7 +17,7 @@ int main(int argc,char** argv) {
   try {
     auto node=std::make_shared<rclcpp::Node>("emba");native::Options o;
     auto text=[&](const char* k,std::string& v){v=node->declare_parameter<std::string>(k,v);};
-    text("events",o.events);text("calibration",o.calibration);text("trajectory",o.trajectory);text("output",o.output);text("gx",o.gx);text("gy",o.gy);
+    text("events",o.events);text("calibration",o.calibration);text("trajectory",o.trajectory);text("output",o.output);text("gx",o.gx);text("gy",o.gy);text("model_mode",o.model_mode);
     o.start_ns=node->declare_parameter<int64_t>("start_ns",o.start_ns);o.stop_ns=node->declare_parameter<int64_t>("stop_ns",o.stop_ns);
     o.trajectory_offset_ns=node->declare_parameter<int64_t>("trajectory_offset_ns",0);o.seed_step_ns=node->declare_parameter<int64_t>("seed_step_ns",0);
     o.random_seed=node->declare_parameter<int64_t>("random_seed",1);o.diagnostics=node->declare_parameter<bool>("diagnostics",false);

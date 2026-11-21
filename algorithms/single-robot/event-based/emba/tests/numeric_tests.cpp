@@ -1,6 +1,8 @@
 #include "emba/model.h"
 #include "native/camera.hpp"
 #include <iostream>
+#include <set>
+#include <stdexcept>
 #include <glog/logging.h>
 #include <opencv2/core/ocl.hpp>
 void require(bool b,const char* label){if(!b)throw std::runtime_error(label);}
@@ -20,7 +22,7 @@ int main(int argc,char** argv){
       require(std::abs((plus.y-minus.y)/2e-7-J(1,j))<1e-5,"warper y derivative");}
     TrajectorySettings settings;settings.t_beg=native::Time(0);settings.t_end=native::Time(.05);settings.dt_knots=.05;
     LinearTrajectory trajectory(settings);trajectory.pushbackCtrlPoses({Sophus::SO3d(),Sophus::SO3d()});
-    EMBA::LEGM model(c,.45,128,64);EMBA::EventPacket events;
+    EMBA::LEGM model(c,.45,128,64,true);EMBA::EventPacket events;
     for(int i=0;i<200;++i){native::Event e;e.x=64;e.y=64;e.ts=native::Time::fromNSec((i+1)*100000);e.polarity=true;events.push_back(e);}
     auto gx=cv::Mat::zeros(64,128,CV_64FC1),gy=cv::Mat::zeros(64,128,CV_64FC1);cv::Mat counts=cv::Mat::zeros(64,128,CV_32SC1);
     auto residual=model.evaluateDataError(&trajectory,gx,gy,events,true,counts);
@@ -38,6 +40,56 @@ int main(int argc,char** argv){
     require((x1-exact.head(3)).norm()+(x2-exact.tail(2)).norm()<1e-11,"Schur solve versus dense damped system");
     model.solveNormalEqCG(A11,A12,A22,b1,b2,.001,x1,x2);
     require((x1-exact.head(3)).norm()+(x2-exact.tail(2)).norm()<1e-5,"CG solve versus dense damped system");
+
+    // Dual-mode checks: exercise actual LEGM residual and normal-equation paths.
+    // The reduced-width map deliberately places the warped event outside the
+    // reference map while remaining valid under periodic horizontal wrapping.
+    {
+      const cv::Point2d center_pm = warper.warpEventToMap(
+          {64,64}, Sophus::SO3d(), nullptr);
+      const int narrow_width = 16;
+      require(center_pm.x >= narrow_width &&
+              center_pm.y >= 0 && center_pm.y < 64,
+              "fixture must warp beyond narrow map width");
+      auto small_gx = cv::Mat::ones(64,narrow_width,CV_64FC1)*0.125;
+      auto small_gy = cv::Mat::zeros(64,narrow_width,CV_64FC1);
+      cv::Mat periodic_counts = cv::Mat::zeros(64,narrow_width,CV_32SC1);
+      cv::Mat reference_counts = cv::Mat::zeros(64,narrow_width,CV_32SC1);
+      EMBA::LEGM periodic(c,.45,128,64,true);
+      EMBA::LEGM reference(c,.45,128,64,false);
+      auto periodic_ep = periodic.evaluateDataError(
+          &trajectory,small_gx,small_gy,events,true,periodic_counts);
+      require(periodic_ep.size()==199,"periodic narrow-map residual count");
+      require(cv::sum(periodic_counts)[0]==199,
+              "periodic wrapped event counts");
+      bool rejected=false;
+      try {
+        (void)reference.evaluateDataError(
+            &trajectory,small_gx,small_gy,events,true,reference_counts);
+      } catch(const std::runtime_error&) {
+        rejected=true;
+      }
+      require(rejected,"reference mode must reject out-of-range map x");
+      EMBA::MatXd n11,n12;
+      std::vector<EMBA::Mat2d> n22;
+      EMBA::VecXd nb1,nb2;
+      std::set<size_t> active,inactive;
+      periodic.formNormalEq(n11,n12,n22,nb1,nb2,
+          periodic_ep,2,periodic_counts,1,active,inactive);
+      require(n11.rows()==6 && n11.cols()==6,
+              "periodic normal equation pose dimensions");
+      require(n11.allFinite() && n12.allFinite() &&
+              nb1.allFinite() && nb2.allFinite(),
+              "periodic normal equation finite");
+      require(!active.empty(),"periodic normal equation active pixels");
+      periodic.formNormalEqIRLS(n11,n12,n22,nb1,nb2,
+          periodic_ep,2,periodic_counts,1,active,inactive,"huber",.2);
+      require(n11.allFinite() && n12.allFinite() &&
+              nb1.allFinite() && nb2.allFinite(),
+              "periodic IRLS normal equation finite");
+      std::cout<<"Dual-mode indexing and normal-equation smoke checks passed\n";
+    }
+
     std::cout<<"Numeric invariants passed (not an upstream parity comparison)\n";
   }catch(const std::exception& e){std::cerr<<e.what()<<"\n";return 1;}
   google::ShutdownGoogleLogging();return 0;

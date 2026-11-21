@@ -21,13 +21,13 @@ int main(int argc,char** argv) {
         <<"[--pano-height 128 --dt-knots .05 --gx FILE --gy FILE --use-cg 0|1]\n"
         <<"[--contrast .45 --alpha 5 --damping 1 --valid-pixel 5 --sampling 1]\n"
         <<"[--irls 0|1 --cost-type quadratic|huber|cauchy --eta .1]\n"
-        <<"[--max-iterations 50 --tol-fun .001 --tol-count 2 --random-seed 1 --diagnostics 0|1]\n";return 0;}
+        <<"[--max-iterations 50 --tol-fun .001 --tol-count 2 --random-seed 1 --diagnostics 0|1 --model-mode periodic|reference]\n";return 0;}
       if(key.rfind("--",0)!=0||i+1==argc||args.count(key))throw std::invalid_argument("each option needs one value; no duplicate keys");
       args[key]=argv[++i];
     }
     auto str=[&](const char* k,std::string& value){auto it=args.find(k);if(it!=args.end()){value=it->second;args.erase(it);}};
     auto num=[&](const char* k,auto& value){auto it=args.find(k);if(it!=args.end()){std::istringstream in(it->second);using T=std::decay_t<decltype(value)>;T parsed;if(!(in>>parsed)||!(in>>std::ws).eof())throw std::invalid_argument(std::string("invalid ")+k);value=parsed;args.erase(it);}};
-    str("--events",o.events);str("--calibration",o.calibration);str("--trajectory",o.trajectory);str("--output",o.output);str("--gx",o.gx);str("--gy",o.gy);
+    str("--events",o.events);str("--calibration",o.calibration);str("--trajectory",o.trajectory);str("--output",o.output);str("--gx",o.gx);str("--gy",o.gy);str("--model-mode",o.model_mode);
     num("--start-ns",o.start_ns);num("--stop-ns",o.stop_ns);num("--trajectory-offset-ns",o.trajectory_offset_ns);num("--seed-step-ns",o.seed_step_ns);
     num("--pano-height",o.ba.pano_height);o.ba.pano_width=2*o.ba.pano_height;
     num("--dt-knots",o.ba.dt_knots);num("--use-cg",o.ba.use_CG);num("--contrast",o.ba.C_th);num("--alpha",o.ba.alpha);

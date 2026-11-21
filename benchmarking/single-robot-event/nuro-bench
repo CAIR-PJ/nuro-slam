@@ -1,0 +1,573 @@
+#!/usr/bin/env python3
+"""Unified Neuromorphic SLAM benchmark CLI.
+
+Plan by default. Run only with explicit --execute.
+Never changes the global execution guard or previous results.
+"""
+
+import argparse
+import importlib.util
+import json
+import os
+import re
+import signal
+import subprocess
+import sys
+import time
+from datetime import datetime, timezone
+from pathlib import Path
+
+import psutil
+
+ROOT = Path(__file__).resolve().parent
+WS = ROOT.parent
+
+PIPELINES = (
+    "cmax",
+    "eroam",
+    "cmax_emba",
+    "eroam_emba",
+    "cmax_epba",
+    "eroam_epba",
+)
+
+FRONTENDS = ("cmax", "eroam")
+
+EOF_PATTERN = re.compile(
+    r"read_events=(\d+)\s+processed_events=(\d+)"
+    r"\s+optimized_windows=(\d+)\s+eof=true"
+)
+
+
+def load_controller():
+    path = ROOT / "controller.py"
+    spec = importlib.util.spec_from_file_location(
+        "nuro_controller_unified", path
+    )
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def manifest():
+    data = json.loads((ROOT / "manifest.json").read_text())
+    if data.get("execution_enabled") is not False:
+        raise RuntimeError(
+            "Global execution guard must remain disabled"
+        )
+    return data
+
+
+def pipeline_selection(value, all_flag):
+    if all_flag and value:
+        raise RuntimeError("Use either --all or --pipeline")
+
+    if all_flag:
+        return list(PIPELINES)
+
+    if not value:
+        raise RuntimeError("Specify --all or --pipeline")
+
+    requested = []
+    for part in value:
+        requested.extend(
+            item.strip() for item in part.split(",") if item.strip()
+        )
+
+    unknown = set(requested) - set(PIPELINES)
+    if unknown:
+        raise RuntimeError(f"Unknown pipelines: {sorted(unknown)}")
+
+    if not requested:
+        raise RuntimeError("Empty pipeline selection")
+
+    return list(dict.fromkeys(requested))
+
+
+def frontend_of(pipeline):
+    return pipeline.split("_", 1)[0]
+
+
+def stage_command(stage):
+    command = stage.get("command")
+    if (
+        not isinstance(command, list)
+        or not command
+        or not all(isinstance(x, str) and x for x in command)
+    ):
+        raise RuntimeError("Unsupported controller stage command")
+    return list(command)
+
+
+def remap(command, substitutions):
+    result = []
+    for argument in command:
+        for old, new in substitutions:
+            argument = argument.replace(str(old), str(new))
+        result.append(argument)
+    return result
+
+
+def replace_eroam_launch(command):
+    """Use previously validated calibrated ±80° EROAM launch."""
+    launch = (
+        ROOT / "configs/eroam/playroom_panorama_80deg.launch.py"
+    )
+    if not launch.is_file():
+        raise RuntimeError(f"Missing calibrated launch: {launch}")
+
+    if len(command) < 4 or command[:2] != ["ros2", "launch"]:
+        raise RuntimeError("Unexpected EROAM frontend command")
+
+    # Launch the calibrated file directly rather than asking ROS 2
+    # to locate it inside the installed eroam_ros2 package.
+    command = list(command)
+    command = ["ros2", "launch", str(launch)] + command[4:]
+    return command
+
+
+def create_plan(selected, run_dir):
+    controller = load_controller()
+    data = manifest()
+
+    frontend_commands = {}
+    backend_commands = {}
+
+    needed_frontends = list(dict.fromkeys(
+        frontend_of(p) for p in selected
+    ))
+
+    for frontend in needed_frontends:
+        plan = controller.build_plan(data, frontend)
+        stages = plan.get("stages", [])
+        if len(stages) != 1:
+            raise RuntimeError(
+                f"Unexpected frontend plan for {frontend}"
+            )
+
+        command = stage_command(stages[0])
+        old = ROOT / "runs" / frontend
+        new = run_dir / frontend
+
+        command = remap(command, [(old, new)])
+
+        if frontend == "cmax":
+            if command[:4] != [
+                "ros2", "launch", "cmax_slam_ros2",
+                "offline.launch.py"
+            ]:
+                raise RuntimeError("Unexpected CMax command")
+
+            command = [
+                x for x in command
+                if not x.startswith("rviz:=")
+            ]
+            command.append("rviz:=false")
+        else:
+            command = replace_eroam_launch(command)
+
+        frontend_commands[frontend] = command
+
+    for pipeline in selected:
+        if pipeline in FRONTENDS:
+            continue
+
+        plan = controller.build_plan(data, pipeline)
+        stages = plan.get("stages", [])
+
+        if len(stages) != 2:
+            raise RuntimeError(
+                f"Unexpected backend plan for {pipeline}"
+            )
+
+        command = stage_command(stages[1])
+
+        frontend = frontend_of(pipeline)
+        old_pipeline = ROOT / "runs" / pipeline
+        old_frontend = old_pipeline / "frontend"
+        new_frontend = run_dir / frontend / "frontend"
+        new_backend = run_dir / pipeline / "backend"
+
+        command = remap(command, [
+            (old_frontend, new_frontend),
+            (old_pipeline / "backend", new_backend),
+            (old_pipeline, run_dir / pipeline),
+        ])
+
+        # The backend must use the shared frontend trajectory.
+        trajectory = new_frontend / "trajectory.tum"
+
+        if str(trajectory) not in command:
+            raise RuntimeError(
+                f"{pipeline}: shared trajectory was not mapped"
+            )
+
+        backend_commands[pipeline] = command
+
+    return frontend_commands, backend_commands
+
+
+def ros_command(command):
+    overlays = [
+        WS / "ports/cmax_ros2_port/install/setup.zsh",
+        WS / "ports/eroam_ros2_port/install/setup.zsh",
+    ]
+
+    for path in overlays:
+        if not path.is_file():
+            raise RuntimeError(f"Missing overlay: {path}")
+
+    return [
+        "/bin/zsh", "-c",
+        'source "$1" && source "$2" && shift 2 && exec "$@"',
+        "nuro-bench-stage",
+        str(overlays[0]),
+        str(overlays[1]),
+        *command,
+    ]
+
+
+def tracked_alive(tracked):
+    alive = []
+    for pid, created in tracked:
+        try:
+            p = psutil.Process(pid)
+            if (
+                abs(p.create_time() - created) < 0.01
+                and p.is_running()
+                and p.status() != psutil.STATUS_ZOMBIE
+            ):
+                alive.append(p)
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            pass
+    return alive
+
+
+def supervise(command, logfile, *, cmax=False, timeout=300):
+    """Run one stage, monitor descendants, and clean up safely."""
+    logfile.parent.mkdir(parents=True, exist_ok=True)
+
+    if logfile.exists():
+        raise FileExistsError(logfile)
+
+    tracked = {}
+    start = time.monotonic()
+    eof = None
+    sigint_at = None
+    forced = False
+    peak_rss = 0
+
+    with logfile.open("x") as log:
+        proc = subprocess.Popen(
+            ros_command(command),
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
+
+        parent = psutil.Process(proc.pid)
+
+        try:
+            while proc.poll() is None:
+                elapsed = time.monotonic() - start
+
+                try:
+                    family = [parent] + parent.children(recursive=True)
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    family = []
+
+                rss = 0
+
+                for p in family:
+                    try:
+                        tracked[(p.pid, p.create_time())] = True
+                        rss += p.memory_info().rss
+                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+                        pass
+
+                peak_rss = max(peak_rss, rss)
+
+                if cmax and sigint_at is None:
+                    text = logfile.read_text(errors="replace")
+                    matches = list(EOF_PATTERN.finditer(text))
+
+                    if matches:
+                        counts = [
+                            int(x) for x in matches[-1].groups()
+                        ]
+                        if (
+                            counts[0] > 0
+                            and counts[0] == counts[1]
+                            and counts[2] > 0
+                        ):
+                            eof = {
+                                "read_events": counts[0],
+                                "processed_events": counts[1],
+                                "optimized_windows": counts[2],
+                            }
+                            sigint_at = time.monotonic()
+                            os.killpg(proc.pid, signal.SIGINT)
+
+                if sigint_at is not None:
+                    if time.monotonic() - sigint_at > 90:
+                        break
+                elif elapsed > timeout:
+                    break
+
+                time.sleep(0.25)
+
+        finally:
+            if proc.poll() is None:
+                forced = True
+                try:
+                    os.killpg(proc.pid, signal.SIGTERM)
+                except ProcessLookupError:
+                    pass
+
+                try:
+                    proc.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    try:
+                        os.killpg(proc.pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+                    proc.wait(timeout=5)
+
+            descendants = tracked_alive(tracked)
+
+            for p in descendants:
+                try:
+                    p.terminate()
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    pass
+
+            _, alive = psutil.wait_procs(
+                tracked_alive(tracked), timeout=3
+            )
+
+            for p in alive:
+                try:
+                    p.kill()
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    pass
+
+            psutil.wait_procs(tracked_alive(tracked), timeout=3)
+
+    return {
+        "return_code": proc.returncode,
+        "elapsed_seconds": round(time.monotonic() - start, 3),
+        "peak_sampled_rss_mib": round(
+            peak_rss / 1048576, 3
+        ),
+        "cmax_eof": eof,
+        "sigint_requested": sigint_at is not None,
+        "forced_termination": forced,
+        "cleanup_complete": not tracked_alive(tracked),
+        "log": str(logfile),
+    }
+
+
+def validate_tum(path):
+    import math
+
+    if not path.is_file() or path.stat().st_size == 0:
+        raise RuntimeError(f"Missing trajectory: {path}")
+
+    count = 0
+    previous = None
+
+    for line in path.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+
+        values = [float(x) for x in line.split()]
+
+        if len(values) != 8:
+            raise RuntimeError("Invalid TUM row")
+
+        if not all(math.isfinite(x) for x in values):
+            raise RuntimeError("Nonfinite trajectory")
+
+        if previous is not None and values[0] <= previous:
+            raise RuntimeError("Nonmonotonic timestamps")
+
+        qnorm = math.sqrt(sum(q*q for q in values[4:8]))
+        if abs(qnorm - 1) > 0.01:
+            raise RuntimeError("Invalid quaternion norm")
+
+        previous = values[0]
+        count += 1
+
+    if count < 2:
+        raise RuntimeError("Insufficient trajectory poses")
+
+    return {"valid": True, "poses": count}
+
+
+def save(path, data):
+    with path.open("x") as f:
+        json.dump(data, f, indent=2)
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Unified Neuromorphic SLAM benchmark"
+    )
+
+    parser.add_argument("action", choices=("plan", "run"))
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument("--all", action="store_true")
+    group.add_argument(
+        "--pipeline", action="append",
+        help="Pipeline name or comma-separated names"
+    )
+
+    parser.add_argument("--execute", action="store_true")
+    parser.add_argument("--run-id")
+
+    args = parser.parse_args()
+
+    if args.action == "plan" and args.execute:
+        parser.error("--execute is only valid with run")
+
+    selected = pipeline_selection(
+        args.pipeline, args.all
+    )
+
+    if args.run_id is None:
+        args.run_id = datetime.now(
+            timezone.utc
+        ).strftime("benchmark_%Y%m%d_%H%M%S")
+
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", args.run_id):
+        raise RuntimeError("Invalid run identifier")
+
+    run_dir = ROOT / "runs" / args.run_id
+
+    if run_dir.exists():
+        raise RuntimeError(
+            f"Run directory exists; refusing overwrite: {run_dir}"
+        )
+
+    frontends, backends = create_plan(selected, run_dir)
+
+    print("=== NURO BENCHMARK ===")
+    print("Selected:", ", ".join(selected))
+    print("Run directory:", run_dir)
+    print("Global execution guard: DISABLED")
+    print()
+
+    for name, cmd in frontends.items():
+        print(f"FRONTEND {name}: {' '.join(cmd)}")
+
+    for name, cmd in backends.items():
+        print(f"BACKEND  {name}: {' '.join(cmd)}")
+
+    if args.action == "plan" or not args.execute:
+        print("\nDRY RUN — no SLAM execution")
+        return
+
+    print("\nEXECUTION AUTHORIZED\n", flush=True)
+
+    run_dir.mkdir(parents=True, exist_ok=False)
+
+    results = {
+        "selected": selected,
+        "frontends": {},
+        "pipelines": {},
+        "execution_enabled_in_manifest": False,
+    }
+
+    try:
+        for frontend, command in frontends.items():
+            print(f"Running frontend: {frontend}", flush=True)
+
+            result = supervise(
+                command,
+                run_dir / frontend / "execution.log",
+                cmax=(frontend == "cmax"),
+            )
+
+            results["frontends"][frontend] = result
+
+            if not result["cleanup_complete"]:
+                raise RuntimeError(
+                    f"{frontend}: process cleanup incomplete"
+                )
+
+            if result["forced_termination"]:
+                raise RuntimeError(
+                    f"{frontend}: forced termination"
+                )
+
+            if frontend == "cmax" and result["cmax_eof"] is None:
+                raise RuntimeError("CMax EOF not confirmed")
+
+            if frontend == "eroam" and result["return_code"] != 0:
+                raise RuntimeError("EROAM process failed")
+
+            trajectory = (
+                run_dir / frontend / "frontend/trajectory.tum"
+            )
+
+            results["frontends"][frontend]["trajectory"] = (
+                validate_tum(trajectory)
+            )
+
+            print(
+                f"{frontend}: "
+                f"{results['frontends'][frontend]['trajectory']['poses']} poses"
+            )
+
+        for pipeline in selected:
+            if pipeline in FRONTENDS:
+                frontend = pipeline
+                results["pipelines"][pipeline] = {
+                    "status": "PASS",
+                    "frontend": frontend,
+                }
+                continue
+
+            print(f"Running backend: {pipeline}", flush=True)
+
+            result = supervise(
+                backends[pipeline],
+                run_dir / pipeline / "execution.log",
+                timeout=300,
+            )
+
+            results["pipelines"][pipeline] = result
+
+            if (
+                result["return_code"] != 0
+                or result["forced_termination"]
+                or not result["cleanup_complete"]
+            ):
+                raise RuntimeError(
+                    f"{pipeline}: backend execution failed"
+                )
+
+            results["pipelines"][pipeline]["status"] = "PASS"
+
+            print(
+                f"{pipeline}: PASS "
+                f"({result['elapsed_seconds']} s)"
+            )
+
+    except Exception as exc:
+        results["error"] = f"{type(exc).__name__}: {exc}"
+        print("ERROR:", results["error"])
+
+    finally:
+        save(run_dir / "results.json", results)
+        print("\nResults:", run_dir / "results.json")
+        print("Global guard: UNCHANGED")
+
+    if "error" in results:
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

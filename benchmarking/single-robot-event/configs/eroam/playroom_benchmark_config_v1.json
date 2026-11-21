@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "name": "EROAM Playroom calibrated benchmark configuration",
+  "created_utc": "2026-11-15T17:22:07.412894+00:00",
+  "execution_enabled": false,
+  "dataset": {
+    "name": "Playroom",
+    "events_path": "/Users/pramod/neuromorphic_slam_ws/ports/cmax_ros2_port/converted/playroom.events",
+    "events_sha256": "9b6e9f4c05735a9455de970ff451078f4c6668ce7d56c7ee5ad1c51471190290",
+    "resolution": [
+      128,
+      128
+    ]
+  },
+  "launch": {
+    "path": "/Users/pramod/neuromorphic_slam_ws/nuro_benchmark/configs/eroam/playroom_calibrated.launch.py",
+    "sha256": "48f911a6bf7e9440bc8c62ed9e9a6143c99e22812fe1841e1c08cddf4c006854",
+    "ros2_introspection": "passed_step_123"
+  },
+  "camera": {
+    "model": "plumb_bob",
+    "intrinsic_matrix": [
+      91.4014729896821,
+      0.0,
+      64.0,
+      0.0,
+      91.4014729896821,
+      64.0,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "distortion_coefficients": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  "launch_arguments": {
+    "events": "/Users/pramod/neuromorphic_slam_ws/ports/cmax_ros2_port/converted/playroom.events",
+    "packet_size": "500",
+    "results": null
+  },
+  "dependent_pipelines": [
+    "eroam",
+    "eroam_emba",
+    "eroam_epba"
+  ],
+  "validation": {
+    "static_configuration": "passed",
+    "ros2_launch_introspection": "passed",
+    "runtime_parameter_delivery": "not_tested",
+    "historical_run_calibration": "not_verified",
+    "ground_truth_accuracy": "not_available",
+    "end_to_end_pipeline": "not_validated"
+  },
+  "notes": [
+    "This record does not authorize execution.",
+    "The results directory must be allocated uniquely before execution.",
+    "Historical EROAM results must not be reclassified as calibrated.",
+    "EPBA preview and full-sequence tracks must remain separate."
+  ]
+}

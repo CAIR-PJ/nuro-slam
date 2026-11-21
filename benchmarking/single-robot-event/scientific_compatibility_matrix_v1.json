@@ -1,0 +1,173 @@
+{
+  "schema_version": 1,
+  "report_type": "scientific_compatibility_matrix",
+  "created_utc": "2026-11-15T17:10:22.832218+00:00",
+  "source_manifest": "/Users/pramod/neuromorphic_slam_ws/nuro_benchmark/manifest.json",
+  "execution_enabled": false,
+  "benchmark_categories": [
+    "trajectory_accuracy",
+    "mapping_quality",
+    "computational_efficiency",
+    "energy_efficiency",
+    "robustness",
+    "reproducibility"
+  ],
+  "evaluation_windows": {
+    "full_sequence": {
+      "start_seconds": 0.056249173,
+      "stop_seconds": 2.255249173,
+      "duration_seconds": 2.199
+    },
+    "epba_preview": {
+      "start_seconds": 0.006249173,
+      "stop_seconds": 0.056249173,
+      "duration_seconds": 0.05
+    }
+  },
+  "pipelines": [
+    {
+      "pipeline_id": "cmax",
+      "stages": [
+        "CMax"
+      ],
+      "evaluation_track": "full_sequence",
+      "evaluation_window": {
+        "start_seconds": 0.056249173,
+        "stop_seconds": 2.255249173,
+        "duration_seconds": 2.199
+      },
+      "trajectory_evaluation": "rotation_only_translation_not_applicable",
+      "interface_readiness": "standalone",
+      "calibration_readiness": "requires_verification",
+      "mapping_quality": "requires_metric_definition",
+      "computational_efficiency": "instrumentation_synthetic_validated",
+      "energy_efficiency": "measurement_method_pending",
+      "robustness": "test_protocol_pending",
+      "reproducibility": "run_provenance_pending",
+      "scientifically_comparable": false,
+      "execution_authorized": false
+    },
+    {
+      "pipeline_id": "eroam",
+      "stages": [
+        "EROAM"
+      ],
+      "evaluation_track": "full_sequence",
+      "evaluation_window": {
+        "start_seconds": 0.056249173,
+        "stop_seconds": 2.255249173,
+        "duration_seconds": 2.199
+      },
+      "trajectory_evaluation": "requires_ground_truth",
+      "interface_readiness": "standalone",
+      "calibration_readiness": "requires_review",
+      "mapping_quality": "requires_metric_definition",
+      "computational_efficiency": "instrumentation_synthetic_validated",
+      "energy_efficiency": "measurement_method_pending",
+      "robustness": "test_protocol_pending",
+      "reproducibility": "run_provenance_pending",
+      "scientifically_comparable": false,
+      "execution_authorized": false
+    },
+    {
+      "pipeline_id": "cmax_emba",
+      "stages": [
+        "CMax",
+        "EMBA"
+      ],
+      "evaluation_track": "full_sequence",
+      "evaluation_window": {
+        "start_seconds": 0.056249173,
+        "stop_seconds": 2.255249173,
+        "duration_seconds": 2.199
+      },
+      "trajectory_evaluation": "requires_ground_truth_and_output_validation",
+      "interface_readiness": "requires_end_to_end_validation",
+      "calibration_readiness": "requires_verification",
+      "mapping_quality": "requires_metric_definition",
+      "computational_efficiency": "instrumentation_synthetic_validated",
+      "energy_efficiency": "measurement_method_pending",
+      "robustness": "test_protocol_pending",
+      "reproducibility": "run_provenance_pending",
+      "scientifically_comparable": false,
+      "execution_authorized": false
+    },
+    {
+      "pipeline_id": "eroam_emba",
+      "stages": [
+        "EROAM",
+        "EMBA"
+      ],
+      "evaluation_track": "full_sequence",
+      "evaluation_window": {
+        "start_seconds": 0.056249173,
+        "stop_seconds": 2.255249173,
+        "duration_seconds": 2.199
+      },
+      "trajectory_evaluation": "requires_ground_truth_and_output_validation",
+      "interface_readiness": "requires_end_to_end_validation",
+      "calibration_readiness": "requires_review",
+      "mapping_quality": "requires_metric_definition",
+      "computational_efficiency": "instrumentation_synthetic_validated",
+      "energy_efficiency": "measurement_method_pending",
+      "robustness": "test_protocol_pending",
+      "reproducibility": "run_provenance_pending",
+      "scientifically_comparable": false,
+      "execution_authorized": false
+    },
+    {
+      "pipeline_id": "cmax_epba",
+      "stages": [
+        "CMax",
+        "EPBA"
+      ],
+      "evaluation_track": "epba_preview",
+      "evaluation_window": {
+        "start_seconds": 0.006249173,
+        "stop_seconds": 0.056249173,
+        "duration_seconds": 0.05
+      },
+      "trajectory_evaluation": "preview_only_requires_validation",
+      "interface_readiness": "requires_end_to_end_validation",
+      "calibration_readiness": "requires_verification",
+      "mapping_quality": "requires_metric_definition",
+      "computational_efficiency": "instrumentation_synthetic_validated",
+      "energy_efficiency": "measurement_method_pending",
+      "robustness": "test_protocol_pending",
+      "reproducibility": "run_provenance_pending",
+      "scientifically_comparable": false,
+      "execution_authorized": false
+    },
+    {
+      "pipeline_id": "eroam_epba",
+      "stages": [
+        "EROAM",
+        "EPBA"
+      ],
+      "evaluation_track": "epba_preview",
+      "evaluation_window": {
+        "start_seconds": 0.006249173,
+        "stop_seconds": 0.056249173,
+        "duration_seconds": 0.05
+      },
+      "trajectory_evaluation": "preview_only_requires_validation",
+      "interface_readiness": "requires_end_to_end_validation",
+      "calibration_readiness": "requires_review",
+      "mapping_quality": "requires_metric_definition",
+      "computational_efficiency": "instrumentation_synthetic_validated",
+      "energy_efficiency": "measurement_method_pending",
+      "robustness": "test_protocol_pending",
+      "reproducibility": "run_provenance_pending",
+      "scientifically_comparable": false,
+      "execution_authorized": false
+    }
+  ],
+  "limitations": [
+    "Readiness classifications are provisional.",
+    "No SLAM algorithms were executed.",
+    "No ground-truth accuracy was established.",
+    "No end-to-end pipeline compatibility was established.",
+    "EPBA preview and full-sequence results are separate tracks.",
+    "Energy measurement methodology remains pending."
+  ]
+}

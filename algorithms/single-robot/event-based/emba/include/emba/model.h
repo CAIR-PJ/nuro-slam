@@ -75,7 +75,9 @@ class LEGM: public Model
 public:
     // Constructor
     LEGM(const native::CameraInfo& camera_info_msg, double C_th,
-         int pano_width, int pano_height);
+         int pano_width, int pano_height, bool periodic_mode = true);
+
+    bool periodic_mode_ = true;
 
     // Deconstructor
     ~LEGM () { delete event_warper_ptr_; }

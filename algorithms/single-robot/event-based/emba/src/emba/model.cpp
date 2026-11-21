@@ -56,8 +56,9 @@ void Model::updateTraj(Trajectory* traj_ptr, const VecXd& x1, const size_t idx_c
 
 /************* LEGM ***************/
 LEGM::LEGM(const native::CameraInfo& camera_info_msg, double C_th,
-           int pano_width, int pano_height)
+           int pano_width, int pano_height, bool periodic_mode)
 {
+    periodic_mode_ = periodic_mode;
     // Get the contrast threshold
     C_th_ = C_th;
 
@@ -125,10 +126,10 @@ VecXd LEGM::evaluateDataError(Trajectory *traj_ptr, const cv::Mat& Gx, const cv:
 
     // Compute the second order gradient map via Sobel
     cv::Mat Gxx, Gxy, Gyx, Gyy; // Note: here Gxy and Gyx may not be same
-    periodicSobel(Gx, Gxx, 1, 0);
-    periodicSobel(Gx, Gxy, 0, 1);
-    periodicSobel(Gy, Gyx, 1, 0);
-    periodicSobel(Gy, Gyy, 0, 1);
+    if (periodic_mode_) periodicSobel(Gx, Gxx, 1, 0); else cv::Sobel(Gx, Gxx, CV_64FC1, 1, 0);
+    if (periodic_mode_) periodicSobel(Gx, Gxy, 0, 1); else cv::Sobel(Gx, Gxy, CV_64FC1, 0, 1);
+    if (periodic_mode_) periodicSobel(Gy, Gyx, 1, 0); else cv::Sobel(Gy, Gyx, CV_64FC1, 1, 0);
+    if (periodic_mode_) periodicSobel(Gy, Gyy, 0, 1); else cv::Sobel(Gy, Gyy, CV_64FC1, 0, 1);
     Gxx = 0.125 * Gxx;
     Gxy = 0.125 * Gxy;
     Gyx = 0.125 * Gyx;
@@ -237,7 +238,7 @@ VecXd LEGM::evaluateDataError(Trajectory *traj_ptr, const cv::Mat& Gx, const cv:
                     std::remainder(dx_raw, static_cast<double>(Gx.cols));
 
                 const ColVector2d dp(
-                    dx_periodic,
+                    periodic_mode_ ? dx_periodic : dx_raw,
                     ev_curr_state.pm.y - ev_prev_state.pm.y);
 
                 // Outlier rejection: if the displacement between these two warped events too small or too big,
@@ -254,16 +255,22 @@ VecXd LEGM::evaluateDataError(Trajectory *traj_ptr, const cv::Mat& Gx, const cv:
                 // Select the closest pixel
                 const int pm_x = static_cast<int>(std::round(ev_curr_state.pm.x));
                 const int pm_y = static_cast<int>(std::round(ev_curr_state.pm.y));
-                if (Gx.cols <= 0 || pm_y < 0 || pm_y >= Gx.rows)
+                if (Gx.cols <= 0 || Gx.rows <= 0)
                     throw std::runtime_error(
-                        "EMBA: invalid vertical panorama coordinate");
+                        "EMBA: invalid panorama dimensions");
+                if (pm_y < 0 || pm_y >= Gx.rows)
+                    throw std::runtime_error(
+                        "EMBA: vertical panorama coordinate out of range");
+                if (!periodic_mode_ && (pm_x < 0 || pm_x >= Gx.cols))
+                    throw std::runtime_error(
+                        "EMBA: horizontal panorama coordinate out of range");
                 // The panorama is horizontally periodic.
 // Wrap only the integer map lookup coordinate.
 // Preserve continuous warped coordinates and Jacobians.
 const int pm_x_wrapped =
     ((pm_x % Gx.cols) + Gx.cols) % Gx.cols;
 
-const cv::Point2i pm_int(pm_x_wrapped, pm_y);
+const cv::Point2i pm_int(periodic_mode_ ? pm_x_wrapped : pm_x, pm_y);
                 // 1st-order spatial gradient of the map (dI/dpm)
                 const RowVector2d Gpm(Gx.at<double>(pm_int),
                                       Gy.at<double>(pm_int));
@@ -461,12 +468,13 @@ void LEGM::formNormalEq(MatXd &A11, MatXd &A12, std::vector<Mat2d>& A22_blocks,
                 const int pm_curr_y =
                     static_cast<int>(std::round(ev_curr_state.pm.y));
                 if (num_ev_map.cols <= 0 ||
-                    pm_curr_y < 0 || pm_curr_y >= num_ev_map.rows)
+                    pm_curr_y < 0 || pm_curr_y >= num_ev_map.rows ||
+                      (!periodic_mode_ && (pm_curr_x_raw < 0 || pm_curr_x_raw >= num_ev_map.cols)))
                     throw std::runtime_error(
                         "EMBA: invalid panorama coordinate in normal equations");
-                const int pm_curr_x =
-                    ((pm_curr_x_raw % num_ev_map.cols) +
-                     num_ev_map.cols) % num_ev_map.cols;
+                const int pm_curr_x = periodic_mode_
+                    ? ((pm_curr_x_raw % num_ev_map.cols) + num_ev_map.cols) % num_ev_map.cols
+                    : pm_curr_x_raw;
 
                 // Check if this event is warped to any valid pixel?
                 // If not, skip this event
@@ -646,12 +654,13 @@ void LEGM::formNormalEqIRLS(MatXd& A11, MatXd& A12, std::vector<Mat2d>& A22_bloc
                 const int pm_curr_y =
                     static_cast<int>(std::round(ev_curr_state.pm.y));
                 if (num_ev_map.cols <= 0 ||
-                    pm_curr_y < 0 || pm_curr_y >= num_ev_map.rows)
+                    pm_curr_y < 0 || pm_curr_y >= num_ev_map.rows ||
+                      (!periodic_mode_ && (pm_curr_x_raw < 0 || pm_curr_x_raw >= num_ev_map.cols)))
                     throw std::runtime_error(
                         "EMBA: invalid panorama coordinate in normal equations");
-                const int pm_curr_x =
-                    ((pm_curr_x_raw % num_ev_map.cols) +
-                     num_ev_map.cols) % num_ev_map.cols;
+                const int pm_curr_x = periodic_mode_
+                    ? ((pm_curr_x_raw % num_ev_map.cols) + num_ev_map.cols) % num_ev_map.cols
+                    : pm_curr_x_raw;
 
                 // Check if this event is warped to any valid pixel?
                 // If not, skip this event

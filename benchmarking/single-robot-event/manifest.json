@@ -1,0 +1,104 @@
+{
+  "project": "Nuro-SLAM",
+  "schema_version": 1,
+  "created_utc": "2026-11-14T07:51:34.372118+00:00",
+  "platform": {
+    "system": "Darwin",
+    "machine": "arm64",
+    "release": "27.0.0"
+  },
+  "dataset": {
+    "name": "Playroom",
+    "event_format": "CMAXEV1",
+    "width": 128,
+    "height": 128,
+    "event_count": 3624500,
+    "files": {
+      "events": {
+        "path": "/Users/pramod/neuromorphic_slam_ws/ports/cmax_ros2_port/converted/playroom.events",
+        "bytes": 47118524,
+        "sha256": "9b6e9f4c05735a9455de970ff451078f4c6668ce7d56c7ee5ad1c51471190290"
+      },
+      "cmax_camera": {
+        "path": "/Users/pramod/neuromorphic_slam_ws/ports/cmax_ros2_port/converted/playroom.events.camera.yaml",
+        "bytes": 570,
+        "sha256": "afbbf2b0435243fe96db9a53ab7aa74765d351ecd297358ba4685977297de464"
+      },
+      "optimizer_calibration": {
+        "path": "/Users/pramod/neuromorphic_slam_ws/ports/emba_ros2_port/experiments/cmax_playroom/playroom.calib",
+        "bytes": 190,
+        "sha256": "9892fd69a15e74580ef2be121f09801aaeeae1b0dd7f6d8d8746ca63401bbe58"
+      }
+    }
+  },
+  "evaluation_windows": {
+    "full_sequence": {
+      "start_seconds": 0.056249173,
+      "stop_seconds": 2.255249173,
+      "duration_seconds": 2.199
+    },
+    "epba_preview": {
+      "start_seconds": 0.006249173,
+      "stop_seconds": 0.056249173,
+      "duration_seconds": 0.05
+    }
+  },
+  "pipelines": [
+    {
+      "id": "cmax",
+      "stages": [
+        "CMax"
+      ],
+      "track": "full_sequence"
+    },
+    {
+      "id": "eroam",
+      "stages": [
+        "EROAM"
+      ],
+      "track": "full_sequence"
+    },
+    {
+      "id": "cmax_emba",
+      "stages": [
+        "CMax",
+        "EMBA"
+      ],
+      "track": "full_sequence"
+    },
+    {
+      "id": "eroam_emba",
+      "stages": [
+        "EROAM",
+        "EMBA"
+      ],
+      "track": "full_sequence"
+    },
+    {
+      "id": "cmax_epba",
+      "stages": [
+        "CMax",
+        "EPBA"
+      ],
+      "track": "epba_preview"
+    },
+    {
+      "id": "eroam_epba",
+      "stages": [
+        "EROAM",
+        "EPBA"
+      ],
+      "track": "epba_preview",
+      "status": "requires_validation"
+    }
+  ],
+  "benchmark_categories": [
+    "trajectory_accuracy",
+    "mapping_quality",
+    "computational_efficiency",
+    "energy_efficiency",
+    "robustness",
+    "reproducibility"
+  ],
+  "execution_enabled": false
+}

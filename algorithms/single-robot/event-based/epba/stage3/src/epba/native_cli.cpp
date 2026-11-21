@@ -1,3 +1,4 @@
+#include "epba/so3_initialization.hpp"
 #include "epba/native_lm.hpp"
 #include "native/io.hpp"
 #include "utils/event_pano_warper.h"
@@ -16,8 +17,8 @@
 namespace fs=std::filesystem;
 namespace {
 struct Args {
- std::string events,calib,poses,out,map,init_map;
- int pano_width=1024,pano_height=512,max_events=30000,iterations=5;
+ std::string events,calib,poses,out,map,init_map,solver="cholesky";
+ int pano_width=1024,pano_height=512,max_events=30000,iterations=5,max_knots=96;
  double duration=0.05,dt=0.01,contrast=0.2;
  bool start_given=false;
  int64_t start_ns=0;
@@ -29,9 +30,9 @@ Args parse(int argc,char**argv) {
    if(key=="--help" || key=="-h") {
      std::cout<<"Usage: epba_native_cli --events FILE --calib FILE --poses FILE --out DIR "
        "[--start SECONDS] [--duration 0.05] [--dt 0.01] [--max-events 30000] "
-       "[--iterations 5] [--pano-width 1024] [--pano-height 512] "
-       "[--contrast 0.2] [--map FILE.yml] [--init-map events]\n"
-       "Research preview: one short time window, no FFTW smoothing, no ROS2 node.\n";
+       "[--iterations 5] [--max-knots 96] [--pano-width 1024] [--pano-height 512] "
+       "[--contrast 0.2] [--map FILE.yml] [--init-map events] [--solver cholesky|cg]\n"
+       "Bounded research optimizer; full-duration numerical validation is required.\n";
      std::exit(0);
    }
    if(i+1>=argc) throw std::invalid_argument("missing value for "+key);
@@ -48,16 +49,20 @@ Args parse(int argc,char**argv) {
    else if(key=="--contrast") a.contrast=std::stod(v);
    else if(key=="--max-events") a.max_events=std::stoi(v);
    else if(key=="--iterations") a.iterations=std::stoi(v);
+   else if(key=="--solver") a.solver=v;
+   else if(key=="--max-knots") a.max_knots=std::stoi(v);
    else if(key=="--pano-width") a.pano_width=std::stoi(v);
    else if(key=="--pano-height") a.pano_height=std::stoi(v);
    else throw std::invalid_argument("unknown option: "+key);
  }
  if(a.events.empty()||a.calib.empty()||a.poses.empty()||a.out.empty())
    throw std::invalid_argument("--events, --calib, --poses and --out required");
- if(!(a.duration>0 && a.duration<=0.5 && a.dt>0 && a.dt<=a.duration && a.contrast>0 &&
-      a.max_events>=100 && a.max_events<=1000000 && a.iterations>=1 && a.iterations<=100 &&
+ if(!(a.duration>0 && a.duration<=3.0 && a.dt>0 && a.dt<=a.duration && a.contrast>0 &&
+      a.max_events>=100 && a.max_events<=4000000 && a.max_knots>=2 && a.max_knots<=256 && a.iterations>=1 && a.iterations<=100 &&
       a.pano_width>=32 && a.pano_height>=16 && a.pano_width<=8192 && a.pano_height<=4096))
    throw std::invalid_argument("invalid or unsafe options");
+ if(a.solver!="cholesky" && a.solver!="cg")
+   throw std::invalid_argument("--solver must be cholesky or cg");
  return a;
 }
 }
@@ -122,8 +127,38 @@ int main(int argc,char**argv) {
   cfg.t_beg=native::Time::fromNSec(start);
   cfg.t_end=native::Time::fromNSec(end);
   cfg.dt_knots=a.dt;
-  std::unique_ptr<Trajectory> trajectory(new LinearTrajectory(pose_map,cfg));
+  // EPBA_STEP8G_DIRECT_SO3_KNOT_INITIALIZATION_V1
+  // Sample the frontend rotations directly on SO(3), avoiding the principal-log
+  // branch cut in LinearTrajectory::fitCtrlPoses() near 180 degrees.
+  // This changes initialization only; the native LM model is unchanged.
+  const size_t knot_count =
+      static_cast<size_t>(std::llround((end - start) / 1.0e9 / a.dt)) + 1;
+  std::vector<epba::initialization::TimedRotation> pose_samples;
+  pose_samples.reserve(pose_map.size());
+  for (const auto& p : pose_map) {
+    pose_samples.emplace_back(p.first.toNSec(), p.second);
+  }
+
+  std::vector<int64_t> knot_times;
+  knot_times.reserve(knot_count);
+  for (size_t i = 0; i < knot_count; ++i) {
+    knot_times.push_back(native::checked_add(
+        start, native::seconds_to_ns(static_cast<double>(i) * a.dt)));
+  }
+
+  const std::vector<Sophus::SO3d> initial_knots =
+      epba::initialization::interpolate_knots(pose_samples, knot_times);
+
+  std::unique_ptr<Trajectory> trajectory(new LinearTrajectory(cfg));
+  static_cast<LinearTrajectory*>(trajectory.get())->pushbackCtrlPoses(initial_knots);
+  std::cerr << "[EPBA_STEP8G] direct_SO3_knots=" << initial_knots.size()
+            << " source_poses=" << pose_map.size() << std::endl;
   if(trajectory->size()<2) throw std::runtime_error("spline fitting generated fewer than two knots");
+  if(trajectory->size()>static_cast<size_t>(a.max_knots))
+    throw std::runtime_error("trajectory knot budget exceeded; increase --dt or explicitly adjust --max-knots");
+  std::cerr << "[EPBA_WINDOW] duration=" << a.duration << " dt=" << a.dt
+            << " knots=" << trajectory->size() << " event_available=" << available
+            << " event_selected=" << events.size() << std::endl;
 
   // EPBA_EVENT_MAP_INITIALIZER_V1
   auto make_event_map = [&]() -> cv::Mat {
@@ -215,9 +250,28 @@ int main(int argc,char**argv) {
       throw std::runtime_error("initial map shape mismatch");
     if(panorama.type()!=CV_64FC1) panorama.convertTo(panorama,CV_64FC1);
   }
+
+  // EPBA_INITIAL_TRAJECTORY_DIAGNOSTIC_V1
+  fs::create_directories(a.out);
+  {
+    std::ofstream f(fs::path(a.out)/"trajectory_initial.tum");
+    f<<std::setprecision(17);
+    for(size_t i=0;i<trajectory->size();++i) {
+      const int64_t t=native::checked_add(
+          start,native::seconds_to_ns(i*a.dt));
+      const auto q=trajectory->getControlPose(
+          static_cast<int>(i)).unit_quaternion();
+      f<<native::format_ns(t)<<" 0 0 0 "
+       <<q.x()<<' '<<q.y()<<' '
+       <<q.z()<<' '<<q.w()<<'\n';
+    }
+  }
+
   EPBA::OEGM model(calib,a.contrast,a.pano_width,a.pano_height);
   EPBA::NativeLMOptions opts;
   opts.max_iterations=a.iterations;
+  opts.use_cg=(a.solver=="cg");
+  std::cout<<"[EPBA_SOLVER] solver="<<a.solver<<std::endl;
   auto result=EPBA::optimize_native_lm(model,trajectory,panorama,events,opts);
   fs::create_directories(a.out);
   {
@@ -248,7 +302,11 @@ int main(int argc,char**argv) {
       <<"accepted_steps="<<result.accepted_steps<<'\n'
       <<"termination="<<result.termination<<'\n'
       <<"events_used="<<events.size()<<'\n'
-      <<"warning=research preview; no ground-truth accuracy validation\n";
+      <<"events_available="<<available<<'\n'
+      <<"duration_requested="<<a.duration<<'\n'
+      <<"dt="<<a.dt<<'\n'
+      <<"knots="<<trajectory->size()<<'\n'
+      <<"warning=bounded full-window experimental mode; no ground-truth accuracy certification\n";
   }
   std::cout<<"EPBA preview: initial="<<result.initial_cost<<" final="<<result.final_cost
            <<" accepted="<<result.accepted_steps<<" termination="<<result.termination<<'\n';

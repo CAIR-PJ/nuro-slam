@@ -10,6 +10,7 @@ struct Options {
   int64_t start_ns=-1,stop_ns=-1,trajectory_offset_ns=0,seed_step_ns=0;
   uint64_t random_seed=1;
   bool diagnostics=false;
+  std::string model_mode="periodic";
   BASettings ba{};LMSettings lm{};
   Options() {
     ba.C_th=.45;ba.init_map_available=false;ba.use_CG=false;ba.use_IRLS=false;ba.cost_type="quadratic";ba.eta=.1;
@@ -19,6 +20,7 @@ struct Options {
     lm.max_num_iter=50;lm.tol_fun=.001;lm.num_times_tol_fun_sat=2;
   }
   void validate()const {
+    if(model_mode!="reference" && model_mode!="periodic")throw std::invalid_argument("model_mode must be reference or periodic");
     if(events.empty()||calibration.empty()||trajectory.empty()||output.empty())throw std::invalid_argument("events, calibration, trajectory and output paths are required");
     if(!std::isfinite(ba.C_th)||ba.C_th<=0||!std::isfinite(ba.alpha)||ba.alpha<0||!std::isfinite(ba.damping_factor)||ba.damping_factor<=0||!std::isfinite(ba.eta)||ba.eta<=0)throw std::invalid_argument("invalid model parameters");
     if(ba.pano_height<8||ba.pano_height>4096||ba.pano_width!=2*ba.pano_height)throw std::invalid_argument("invalid 2:1 panorama size");

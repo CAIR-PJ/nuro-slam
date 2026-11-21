@@ -63,3 +63,16 @@ if(BUILD_TESTING)
   add_test(NAME epba_core_warper_test COMMAND epba_core_warper_test)
 endif()
 ament_package()
+
+
+if(BUILD_TESTING)
+  add_executable(epba_so3_initialization_test
+    test/so3_initialization_test.cpp)
+  target_include_directories(epba_so3_initialization_test PRIVATE
+    stage3/include
+    ${EPBA_SOPHUS_INCLUDE})
+  target_link_libraries(epba_so3_initialization_test PRIVATE
+    Eigen3::Eigen)
+  add_test(NAME epba_so3_initialization_test
+    COMMAND epba_so3_initialization_test)
+endif()
